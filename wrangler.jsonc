@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "schulte-web",
+	"name": "schulte",
 	"compatibility_date": "2025-08-23",
 	"main": "server/index.ts",
 	"assets": {
