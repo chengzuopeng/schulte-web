@@ -1,33 +1,129 @@
-# schulte-web
+# 舒尔特方格 Vue 应用
 
-This template should help get you started developing with Vue 3 in Vite.
+这是一个基于 Vue 3 + TypeScript + Vite 开发的舒尔特方格训练应用，专为移动端设计，支持响应式布局。应用采用现代化的前端技术栈，提供流畅的用户体验。
 
-## Recommended IDE Setup
+## 功能特性
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **多种方格尺寸**: 支持 3×3 到 8×8 的方格尺寸选择
+- **选中效果**: 支持选中、消失、不选中三种视觉效果
+- **背景颜色**: 支持默认、白色、七彩三种背景主题
+- **震动效果**: 可开启/关闭震动反馈（移动端）
+- **倒计时**: 可开启/关闭游戏开始倒计时
+- **音效系统**: 支持多种音效选择（关闭、音效1-6）
+- **移动端优化**: 
+  - 完全适配手机端显示和交互
+  - 支持触摸按下/松开交互
+  - 防止文本选择和长按菜单
+  - 移除 hover 效果，优化移动端体验
+- **鸿蒙App集成**: 预留震动和音频API接口，方便嵌入鸿蒙App的WebView
+- **实时计时**: 精确到毫秒的游戏计时显示
 
-## Type Support for `.vue` Imports in TS
+## 技术栈
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+- **前端框架**: Vue 3 (Composition API + `<script setup>`)
+- **开发语言**: TypeScript 5.8
+- **构建工具**: Vite 7.0
+- **样式**: CSS3 (响应式设计 + 动画效果)
+- **部署**: Cloudflare Workers
+- **包管理**: Yarn 4.6
 
-## Customize configuration
+## 开发环境
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### 环境要求
+- Node.js: ^20.19.0 或 >=22.12.0
+- Yarn: 4.6.0+
 
-## Project Setup
+### 开发命令
 
-```sh
-npm install
+```bash
+# 安装依赖
+yarn install
+
+# 启动开发服务器
+yarn dev
+
+# 类型检查
+yarn type-check
+
+# 构建生产版本
+yarn build
+
+# 预览生产版本
+yarn preview
+
+# 部署到 Cloudflare Workers
+yarn deploy
 ```
 
-### Compile and Hot-Reload for Development
+## 项目结构
 
-```sh
-npm run dev
+```
+src/
+├── components/
+│   ├── SchulteGame.vue      # 主游戏组件（TypeScript支持）
+│   ├── SegmentedControl.vue # 分段控制器组件（TypeScript支持）
+│   ├── Transition.vue       # 过渡动画组件（TypeScript支持）
+│   └── HelloWorld.vue       # 示例组件（TypeScript支持）
+├── utils/
+│   └── time.ts              # 时间格式化工具（TypeScript）
+├── App.vue                  # 根组件
+├── main.ts                  # 入口文件
+└── router/
+    └── index.ts             # 路由配置
 ```
 
-### Type-Check, Compile and Minify for Production
+## 移动端交互设计
 
-```sh
-npm run build
+### 触摸交互
+- **按下**: 显示选中颜色（橙色背景）
+- **松开**: 
+  - 选对：保持选中状态（根据设置显示效果）
+  - 选错：恢复原来的颜色
+
+### 响应式设计
+- **桌面端**: 345×345px 游戏区域
+- **平板端**: 300×300px 游戏区域  
+- **手机端**: 280×280px 游戏区域
+
+### 移动端优化
+- 移除 hover 效果
+- 防止文本选择和长按菜单
+- 支持触摸事件
+- 优化按钮交互体验
+
+## 鸿蒙App集成
+
+应用预留了以下API接口，方便在鸿蒙App的WebView中调用：
+
+- **震动API**: `navigator.vibrate()` (已实现)
+- **音频API**: `new Audio()` (已实现)
+
+未来可以替换为鸿蒙App的原生API调用。
+
+## 游戏规则
+
+1. **设置阶段**: 选择游戏参数（方格尺寸、效果、背景等）
+2. **开始游戏**: 点击"开始"按钮，可选择倒计时
+3. **游戏过程**: 按照数字顺序（1, 2, 3...）依次点击方格
+4. **完成游戏**: 完成所有数字后显示用时
+5. **结果处理**: 可选择重新开始或返回设置界面
+
+## 部署
+
+项目支持部署到 Cloudflare Workers：
+
+```bash
+# 构建并部署
+yarn deploy
 ```
+
+## 开发特性
+
+- **完整的 TypeScript 支持**: 所有组件和工具函数都有类型定义
+- **类型安全**: 严格的类型检查，减少运行时错误
+- **现代化开发体验**: 热重载、类型检查、开发工具支持
+- **性能优化**: Vite 构建，快速开发和构建
+
+## 许可证
+
+MIT License
