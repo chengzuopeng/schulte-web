@@ -296,6 +296,16 @@ function goHome() {
   state.value = 1
 }
 
+onMounted(async () => {
+  const res = await fetch('/api/', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: 'Cloudflare',
+    }),
+  })
+  console.log('res', await res.json())
+})
+
 onUnmounted(() => {
   timer && clearInterval(timer)
   countdownTimer && clearInterval(countdownTimer)
