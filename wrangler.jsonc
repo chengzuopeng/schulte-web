@@ -13,6 +13,25 @@
 	"observability": {
 		"enabled": true
 	},
+	"d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sanctuary",
+      "database_id": "de2b2754-935a-48c9-9370-6d7d790d2b15"
+    }
+  ],
+	"dev": {
+		"d1_databases": [
+			{
+				"binding": "DB",
+				"database_name": "sanctuary",
+				"database_id": "de2b2754-935a-48c9-9370-6d7d790d2b15"
+			}
+		]
+	},
+	"vars": {
+		"USE_REMOTE_DB": "true"
+	},
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -33,6 +52,7 @@
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
+	// "secrets": { "MY_SECRET": "production_value" }
 	/**
 	 * Static Assets
 	 * https://developers.cloudflare.com/workers/static-assets/binding/
@@ -40,7 +60,7 @@
 	// "assets": { "directory": "./public/", "binding": "ASSETS" }
 	/**
 	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 * https://developers.cloudflare.com/workers/wrangler/scripts/configuration/#service-bindings
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
 }

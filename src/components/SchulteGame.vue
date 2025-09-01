@@ -13,9 +13,9 @@
       <div class="option-label">选中效果</div>
       <SegmentedControl 
         activeColor="#f79066" 
-        :current="seleteType" 
+        :current="selectedType" 
         :values="selectItems" 
-        @clickItem="(e: ClickItemEvent) => seleteType = e.currentIndex" 
+        @clickItem="(e: ClickItemEvent) => selectedType = e.currentIndex" 
       />
       
       <div class="option-label">方格背景颜色</div>
@@ -91,7 +91,7 @@
                   'cell-card',
                   `cell-card-${gridSize}`,
                   background === 1 ? 'cell-card-bg0' : (background === 2 ? `cell-card-bg${bgClassList[index]}` : ''),
-                  cell.clicked ? selectMap[seleteType] : '',
+                  cell.clicked ? selectMap[selectedType] : '',
                   cell.isPressed ? 'cell-card-pressed' : ''
                 ]"
                 @touchstart="cellPress(index)"
@@ -143,7 +143,7 @@ const sizeItems = ['3×3', '4×4', '5×5', '6×6', '7×7', '8×8']
 const background = ref(2)
 const bgItems = ['默认', '白色', '七彩']
 
-const seleteType = ref(0)
+const selectedType = ref(0)
 const selectItems = ['选中', '消失', '不选中']
 
 const vibrate = ref(0)
@@ -266,6 +266,7 @@ function cellRelease(index: number) {
       currentIndex.value++
       if (currentIndex.value > gridSize.value * gridSize.value) {
         state.value = 3
+        sendResult()
         closeGame()
         currentIndex.value--
       }
@@ -274,6 +275,21 @@ function cellRelease(index: number) {
     }
     currentCell.isPressed = false
   }
+}
+
+const sendResult = () => {
+  fetch('/api/result', {
+    method: 'POST',
+    body: JSON.stringify({
+      duration: timeCounter.value,
+      size: gridSize.value,
+      selectedType: selectedType.value,
+      userId: '',
+      deviceId: '',
+    }),
+  }).catch(error => {
+    console.log('error', error)
+  })
 }
 
 function resetGrid() {
