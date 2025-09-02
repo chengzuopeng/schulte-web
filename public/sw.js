@@ -5,16 +5,10 @@ const CACHE_NAME = 'schulte-web-v1.0.0';
 const STATIC_CACHE = 'schulte-static-v1.0.0';
 const AUDIO_CACHE = 'schulte-audio-v1.0.0';
 
-// 需要缓存的静态资源
+// 需要缓存的静态资源（只缓存实际存在的资源）
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
-  '/src/main.ts',
-  '/src/App.vue',
-  '/src/components/SchulteGame.vue',
-  '/src/utils/app-bridge.ts',
-  '/src/utils/audio-cache.ts',
-  '/src/utils/mobile-optimization.ts'
+  '/index.html'
 ];
 
 // 需要缓存的音频文件
@@ -42,17 +36,33 @@ self.addEventListener('install', (event) => {
       // 缓存静态资源
       caches.open(STATIC_CACHE).then((cache) => {
         console.log('📦 缓存静态资源...');
-        return cache.addAll(STATIC_ASSETS);
+        // 使用addAllSettled避免单个资源失败影响整体
+        return Promise.allSettled(
+          STATIC_ASSETS.map(url => cache.add(url))
+        ).then(results => {
+          const successCount = results.filter(r => r.status === 'fulfilled').length;
+          const failCount = results.filter(r => r.status === 'rejected').length;
+          console.log(`✅ 静态资源缓存完成: ${successCount}成功, ${failCount}失败`);
+        });
       }),
       // 缓存音频文件
       caches.open(AUDIO_CACHE).then((cache) => {
         console.log('🎵 缓存音频文件...');
-        return cache.addAll(AUDIO_ASSETS);
+        // 使用addAllSettled避免单个音频文件失败影响整体
+        return Promise.allSettled(
+          AUDIO_ASSETS.map(url => cache.add(url))
+        ).then(results => {
+          const successCount = results.filter(r => r.status === 'fulfilled').length;
+          const failCount = results.filter(r => r.status === 'rejected').length;
+          console.log(`✅ 音频文件缓存完成: ${successCount}成功, ${failCount}失败`);
+        });
       })
     ]).then(() => {
       console.log('✅ Service Worker 安装完成');
       // 立即激活
       return self.skipWaiting();
+    }).catch(error => {
+      console.error('❌ Service Worker 安装失败:', error);
     })
   );
 });
@@ -98,9 +108,13 @@ self.addEventListener('fetch', (event) => {
       caches.open(AUDIO_CACHE).then((cache) => {
         return cache.match(request).then((response) => {
           if (response) {
-            // 返回缓存，同时更新缓存
+            // 返回缓存，同时后台更新缓存
             fetch(request).then((freshResponse) => {
-              cache.put(request, freshResponse);
+              if (freshResponse.ok) {
+                cache.put(request, freshResponse);
+              }
+            }).catch(() => {
+              // 网络请求失败时忽略，继续使用缓存
             });
             return response;
           }

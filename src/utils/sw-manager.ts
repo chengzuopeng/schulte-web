@@ -4,6 +4,8 @@
 class ServiceWorkerManager {
   private swRegistration: ServiceWorkerRegistration | null = null;
   private isSupported = 'serviceWorker' in navigator;
+  private lastUpdateCheck = 0;
+  private updateCheckInterval = 5 * 60 * 1000; // 5分钟检查一次更新
 
   // 注册Service Worker
   async register(): Promise<boolean> {
@@ -48,7 +50,8 @@ class ServiceWorkerManager {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             console.log('🆕 新版本Service Worker已安装，等待激活...');
-            this.showUpdateNotification();
+            // 不自动显示更新提示，避免频繁打扰用户
+            this.handleUpdateAvailable();
           }
         });
       }
@@ -61,6 +64,17 @@ class ServiceWorkerManager {
     });
   }
 
+  // 处理更新可用
+  private handleUpdateAvailable(): void {
+    // 检查是否应该显示更新提示
+    const now = Date.now();
+    if (now - this.lastUpdateCheck > this.updateCheckInterval) {
+      this.lastUpdateCheck = now;
+      // 可以选择性地显示更新提示
+      console.log('🆕 有新版本可用，但不会自动提示用户');
+    }
+  }
+
   // 设置消息监听器
   private setupMessageListener(): void {
     navigator.serviceWorker.addEventListener('message', (event) => {
@@ -70,8 +84,8 @@ class ServiceWorkerManager {
     });
   }
 
-  // 显示更新通知
-  private showUpdateNotification(): void {
+  // 显示更新通知（手动调用）
+  showUpdateNotification(): void {
     // 可以在这里显示更新提示，让用户刷新页面
     console.log('🆕 有新版本可用，建议刷新页面');
     
@@ -123,11 +137,18 @@ class ServiceWorkerManager {
     });
   }
 
-  // 检查是否有更新
+  // 检查是否有更新（限制频率）
   async checkForUpdate(): Promise<boolean> {
     if (!this.swRegistration) return false;
 
+    const now = Date.now();
+    if (now - this.lastUpdateCheck < this.updateCheckInterval) {
+      console.log('⏰ 更新检查过于频繁，跳过本次检查');
+      return false;
+    }
+
     try {
+      this.lastUpdateCheck = now;
       await this.swRegistration.update();
       return this.swRegistration.installing !== null;
     } catch (error) {
@@ -166,6 +187,12 @@ class ServiceWorkerManager {
   // 检查是否已激活
   isActive(): boolean {
     return this.swRegistration?.active !== null;
+  }
+
+  // 手动触发更新检查（用于调试）
+  async forceUpdateCheck(): Promise<boolean> {
+    this.lastUpdateCheck = 0; // 重置时间限制
+    return this.checkForUpdate();
   }
 }
 

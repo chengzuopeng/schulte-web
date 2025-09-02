@@ -7,13 +7,16 @@
 		"node": "^20.19.0 || >=22.12.0"
 	},
 	"scripts": {
-		"dev": "vite",
+		"dev": "vite --config vite.config.dev.ts",
+		"dev:full": "vite",
 		"build": "run-p type-check \"build-only {@}\" --",
 		"preview": "npm run build && wrangler dev",
 		"build-only": "vite build",
 		"type-check": "vue-tsc --build",
 		"deploy": "npm run build && wrangler deploy",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"worker:dev": "wrangler dev",
+		"worker:deploy": "wrangler deploy"
 	},
 	"dependencies": {
 		"vue": "^3.5.18",
