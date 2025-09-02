@@ -119,6 +119,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue'
+import services from '@/services'
 import { formatMilliseconds } from '../utils/time.ts'
 import SegmentedControl from './SegmentedControl.vue'
 import Transition from './Transition.vue'
@@ -167,22 +168,50 @@ let timer: number | undefined
 let countdownTimer: number | undefined
 let bgClassList: number[] = []
 
-// 震动和音频API（预留鸿蒙app调用）
-const vibrateShort = () => {
+import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
+import { initMobileOptimization } from '@/utils/mobile-optimization'
+import { audioManager } from '@/utils/audio-cache'
+
+// 震动和音频API（使用鸿蒙app桥接工具）
+const vibrateShortHandler = () => {
+  // 只在震动开启时执行
   if (vibrate.value === 0) {
-    // 预留鸿蒙app震动API调用
-    console.log('震动')
-    if (navigator.vibrate) {
-      navigator.vibrate(100)
-    }
+    vibrateShort()
   }
 }
 
-const playAudio = (type: string) => {
+const playAudioHandler = (type: string) => {
+  // 只在音效开启时执行
   if (audioType.value !== 0) {
-    const audio = new Audio(`/audio/${type}${audioType.value}.mp3`)
-    audio.playbackRate = 2
-    audio.play()
+    // 根据类型映射到对应的声音
+    let soundType: 'success' | 'warning' | 'button' | 'error' = 'button';
+    
+    switch (type) {
+      case 'button':
+        soundType = 'button';
+        break;
+      case 'error':
+        soundType = 'error';
+        break;
+      default:
+        soundType = 'button';
+    }
+    
+    // 传递当前的audioType值
+    playSound(soundType, audioType.value);
+  }
+}
+
+// 统一的游戏反馈处理（只处理震动，音效在具体场景中处理）
+const handleGameFeedback = (isSuccess: boolean) => {
+  if (vibrate.value === 0) {
+    if (isSuccess) {
+      // 游戏成功震动
+      vibrateSuccess();
+    } else {
+      // 游戏失败震动
+      vibrateFailure();
+    }
   }
 }
 
@@ -257,38 +286,38 @@ function cellPress(index: number) {
 }
 
 function cellRelease(index: number) {
-  vibrateShort()
+  vibrateShortHandler()
   const currentCell = grid.value[index]
   if (!currentCell.clicked) {
     if (currentCell.value === currentIndex.value) {
-      playAudio('button')
       currentCell.clicked = true
       currentIndex.value++
       if (currentIndex.value > gridSize.value * gridSize.value) {
+        // 游戏成功，使用app管理器的成功反馈
+        handleGameFeedback(true)
         state.value = 3
         sendResult()
         closeGame()
         currentIndex.value--
+      } else {
+        // 点击正确，播放按钮音效
+        playAudioHandler('button')
       }
     } else {
-      playAudio('error')
+      // 游戏失败，使用app管理器的失败反馈
+      handleGameFeedback(false)
     }
     currentCell.isPressed = false
   }
 }
 
 const sendResult = () => {
-  fetch('/api/result', {
-    method: 'POST',
-    body: JSON.stringify({
-      duration: timeCounter.value,
-      size: gridSize.value,
-      selectedType: selectedType.value,
-      userId: '',
-      deviceId: '',
-    }),
+  services.sendResult({
+    duration: timeCounter.value,
+    size: gridSize.value,
+    selectedType: selectedType.value,
   }).catch(error => {
-    console.log('error', error)
+    console.log('发送结果失败:', error)
   })
 }
 
@@ -313,13 +342,21 @@ function goHome() {
 }
 
 onMounted(async () => {
-  const res = await fetch('/api/', {
-    method: 'POST',
-    body: JSON.stringify({
-      name: 'Cloudflare',
-    }),
-  })
-  console.log('res', await res.json())
+  // 初始化移动端优化
+  initMobileOptimization();
+  
+  // 初始化音频管理器（预加载所有音频文件）
+  try {
+    await audioManager.init();
+    console.log('音频管理器初始化完成');
+  } catch (error) {
+    console.error('音频管理器初始化失败:', error);
+  }
+  
+  // 在后台静默初始化appManager，不阻塞页面渲染
+  appManager.init().catch(error => {
+    console.error('AppManager初始化失败:', error);
+  });
 })
 
 onUnmounted(() => {
