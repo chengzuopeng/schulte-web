@@ -1,5 +1,6 @@
 // 音频缓存管理器
 // 预加载所有音频文件，避免重复请求
+// 支持Service Worker缓存，提升app中第二次打开速度
 
 interface AudioCache {
   [key: string]: HTMLAudioElement;
@@ -46,17 +47,19 @@ class AudioManager {
     return new Promise((resolve, reject) => {
       const audio = new Audio();
       
+      // 设置音频属性
+      audio.preload = 'auto';
+      audio.playbackRate = 2;
+      audio.volume = 0.8;
+      
+      // 监听加载完成事件
       audio.addEventListener('canplaythrough', () => {
-        // 设置音频属性
-        audio.playbackRate = 2;
-        audio.volume = 0.8;
-        audio.preload = 'auto';
-        
         // 缓存音频对象
         this.audioCache[key] = audio;
         resolve();
       });
 
+      // 监听加载错误事件
       audio.addEventListener('error', (e) => {
         console.error(`音频加载失败: ${path}`, e);
         reject(new Error(`音频加载失败: ${path}`));
@@ -150,6 +153,40 @@ class AudioManager {
     });
     this.audioCache = {};
     this.isInitialized = false;
+  }
+
+  // 预加载特定音频文件（用于动态加载）
+  async preloadSpecificAudio(type: string, audioType: number): Promise<void> {
+    const key = `${type}${audioType}`;
+    const path = `/audio/${type}${audioType}.mp3`;
+    
+    if (!this.audioCache[key]) {
+      try {
+        await this.loadAudio(key, path);
+        console.log(`✅ 预加载音频完成: ${key}`);
+      } catch (error) {
+        console.error(`❌ 预加载音频失败: ${key}`, error);
+      }
+    }
+  }
+
+  // 获取音频文件大小信息（用于监控缓存效果）
+  async getAudioFileInfo(): Promise<{ [key: string]: number }> {
+    const fileInfo: { [key: string]: number } = {};
+    
+    for (const audioType of this.audioTypes) {
+      try {
+        const buttonResponse = await fetch(`/audio/button${audioType}.mp3`);
+        const errorResponse = await fetch(`/audio/error${audioType}.mp3`);
+        
+        fileInfo[`button${audioType}`] = parseInt(buttonResponse.headers.get('content-length') || '0');
+        fileInfo[`error${audioType}`] = parseInt(errorResponse.headers.get('content-length') || '0');
+      } catch (error) {
+        console.error(`获取音频文件信息失败: ${audioType}`, error);
+      }
+    }
+    
+    return fileInfo;
   }
 }
 

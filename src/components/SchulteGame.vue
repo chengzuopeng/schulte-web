@@ -171,6 +171,7 @@ let bgClassList: number[] = []
 import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
 import { initMobileOptimization } from '@/utils/mobile-optimization'
 import { audioManager } from '@/utils/audio-cache'
+import { swManager } from '@/utils/sw-manager'
 
 // 震动和音频API（使用鸿蒙app桥接工具）
 const vibrateShortHandler = () => {
@@ -344,6 +345,14 @@ function goHome() {
 onMounted(async () => {
   // 初始化移动端优化
   initMobileOptimization();
+  
+  // 注册Service Worker（实现离线缓存）
+  try {
+    await swManager.register();
+    console.log('Service Worker注册完成');
+  } catch (error) {
+    console.error('Service Worker注册失败:', error);
+  }
   
   // 初始化音频管理器（预加载所有音频文件）
   try {

@@ -9,7 +9,18 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#f09491" />
     <meta name="msapplication-navbutton-color" content="#f09491" />
+    
+    <!-- 缓存优化 -->
+    <meta http-equiv="Cache-Control" content="max-age=31536000, immutable" />
+    <meta http-equiv="Expires" content="31536000" />
+    
     <title>舒尔特方格</title>
+    
+    <!-- 预加载关键资源 -->
+    <link rel="preload" href="/audio/button1.mp3" as="audio" type="audio/mpeg" />
+    <link rel="preload" href="/audio/error1.mp3" as="audio" type="audio/mpeg" />
+    <link rel="dns-prefetch" href="//schulte.kiteblog.cn" />
+    
     <style>
       /* 防止页面闪烁 */
       html, body {
