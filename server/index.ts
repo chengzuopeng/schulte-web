@@ -44,16 +44,93 @@ export default {
 						body.selectedType
 					).run();
 
+					// 查询用户在所有尺寸下的历史最佳记录
+					const historyBestStmt = env.DB.prepare(`
+						SELECT size, MIN(duration) as best_duration
+						FROM schulte_time 
+						WHERE user_id = ?
+						GROUP BY size
+						ORDER BY size
+					`);
+					
+					const historyBestResult = await historyBestStmt.bind(body.userId || null).all();
+					
+					// 查询用户当天在所有尺寸下的最佳记录
+					const todayBestStmt = env.DB.prepare(`
+						SELECT size, MIN(duration) as best_duration
+						FROM schulte_time 
+						WHERE user_id = ? 
+						AND DATE(created_time, 'unixepoch') = DATE('now')
+						GROUP BY size
+						ORDER BY size
+					`);
+					
+					const todayBestResult = await todayBestStmt.bind(body.userId || null).all();
+
 					return Response.json({
 						success: true,
 						message: '数据保存成功',
 						data: {
-							id: result.meta.last_row_id
+							id: result.meta.last_row_id,
+							historyBest: historyBestResult.results,
+							todayBest: todayBestResult.results
 						}
 					});
 
 				} catch (error) {
 					console.error('保存数据时出错:', error);
+					return Response.json({
+						success: false,
+						error: '服务器内部错误'
+					}, { status: 500 });
+				}
+			}
+
+			// 处理 /api/record 接口
+			if (url.pathname === "/api/record" && request.method === "GET") {
+				try {
+					const userId = url.searchParams.get('userId');
+					
+					if (!userId) {
+						return Response.json({
+							success: false,
+							error: '缺少 userId 参数'
+						}, { status: 400 });
+					}
+
+					// 查询用户在所有尺寸下的历史最佳记录
+					const historyBestStmt = env.DB.prepare(`
+						SELECT size, MIN(duration) as best_duration
+						FROM schulte_time 
+						WHERE user_id = ?
+						GROUP BY size
+						ORDER BY size
+					`);
+					
+					const historyBestResult = await historyBestStmt.bind(userId).all();
+					
+					// 查询用户当天在所有尺寸下的最佳记录
+					const todayBestStmt = env.DB.prepare(`
+						SELECT size, MIN(duration) as best_duration
+						FROM schulte_time 
+						WHERE user_id = ? 
+						AND DATE(created_time, 'unixepoch') = DATE('now')
+						GROUP BY size
+						ORDER BY size
+					`);
+					
+					const todayBestResult = await todayBestStmt.bind(userId).all();
+
+					return Response.json({
+						success: true,
+						data: {
+							historyBest: historyBestResult.results,
+							todayBest: todayBestResult.results
+						}
+					});
+
+				} catch (error) {
+					console.error('查询记录时出错:', error);
 					return Response.json({
 						success: false,
 						error: '服务器内部错误'

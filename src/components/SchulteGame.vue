@@ -117,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, reactive } from 'vue'
 import services from '@/services'
 import { formatMilliseconds } from '../utils/time.ts'
 import SegmentedControl from './SegmentedControl.vue'
@@ -171,6 +171,34 @@ import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } f
 import { initMobileOptimization } from '@/utils/mobile-optimization'
 import { audioManager } from '@/utils/audio-cache'
 import { swManager } from '@/utils/sw-manager'
+
+// 用户记录数据结构与状态
+interface UserRecord { historyBest: { size: number; best_duration: number }[]; todayBest: { size: number; best_duration: number }[] }
+const userRecords = reactive<UserRecord>({ historyBest: [], todayBest: [] })
+
+// 静默获取用户记录并写入本地缓存（不阻塞渲染）
+async function fetchUserRecords() {
+  try {
+    const userId = await appManager.getUserId()
+    if (!userId) return
+    const res = await fetch(`/api/record?userId=${userId}`)
+    const json = await res.json()
+    if (json?.success && json?.data) {
+      userRecords.historyBest = json.data.historyBest || []
+      userRecords.todayBest = json.data.todayBest || []
+      localStorage.setItem('schulte_user_records', JSON.stringify(json.data))
+    }
+  } catch (e) {
+    const cached = localStorage.getItem('schulte_user_records')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        userRecords.historyBest = parsed.historyBest || []
+        userRecords.todayBest = parsed.todayBest || []
+      } catch {}
+    }
+  }
+}
 
 // 震动和音频API（使用鸿蒙app桥接工具）
 const vibrateShortHandler = () => {
@@ -319,8 +347,19 @@ const sendResult = () => {
     duration: timeCounter.value,
     size: gridSize.value,
     selectedType: selectedType.value,
+  }).then((res: any) => {
+    // 静默更新本地记录数据（非阻塞）
+    if (res?.success && res?.data) {
+      userRecords.historyBest = res.data.historyBest || []
+      userRecords.todayBest = res.data.todayBest || []
+      localStorage.setItem('schulte_user_records', JSON.stringify({
+        historyBest: userRecords.historyBest,
+        todayBest: userRecords.todayBest
+      }))
+    }
   }).catch(error => {
     console.log('发送结果失败:', error)
+    // 即使失败也不影响用户体验
   })
 }
 
@@ -372,6 +411,9 @@ onMounted(async () => {
   appManager.init().catch(error => {
     console.error('AppManager初始化失败:', error);
   });
+  
+  // 静默拉取用户记录，不阻塞渲染
+  fetchUserRecords().catch(() => {})
 })
 
 onUnmounted(() => {
