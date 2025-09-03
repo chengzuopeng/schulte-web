@@ -15,7 +15,6 @@ interface Env {
 export default {
 	async fetch(request: Request, env: Env) {
 		const url = new URL(request.url);
-		console.log('url', url)
 
 		if (url.pathname.startsWith("/api/")) {
 			// 处理 /api/result 接口

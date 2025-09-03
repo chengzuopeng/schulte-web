@@ -71,15 +71,14 @@
       <div class="game-body">
         <div :class="['grid-container', state === 3 ? 'bg-red' : '']">
           <div :style="gridContainerStyle" v-if="state === 2" class="grid-wrap">
-            <Transition 
-              v-if="countdownType === 0 && countdown > 0" 
-              :mode-class="['fade']" 
-              :show="item === countdown" 
-              v-for="item in COUNTDONW_TIME"
-              :key="item"
-            >
-              <div class="countdown">{{ countdown }}</div>
+            <!-- 倒计时显示 -->
+            <Transition name="countdown-fade" v-if="countdownType === 0 && countdown > 0">
+              <div class="countdown" :key="countdown">
+                {{ countdown }}
+              </div>
             </Transition>
+            
+            <!-- 游戏网格 -->
             <div 
               v-show="countdownType !== 0 || countdown === 0" 
               v-for="(cell, index) in grid" 
@@ -221,6 +220,9 @@ const start = () => {
   currentIndex.value = 1
   state.value = 2
   
+  // 重置倒计时
+  countdown.value = COUNTDONW_TIME
+  
   const startCount = () => {
     startTime = Date.now()
     timer = setInterval(() => {
@@ -332,6 +334,10 @@ function closeGame() {
   countdown.value = COUNTDONW_TIME
   timer && clearInterval(timer)
   countdownTimer && clearInterval(countdownTimer)
+  
+  // 清理定时器引用
+  timer = undefined
+  countdownTimer = undefined
 }
 
 const selectMap = ['cell-card-clicked', 'cell-card-disappear', '']
@@ -793,8 +799,48 @@ onUnmounted(() => {
   }
   
   .countdown {
-    font-size: 80px;
+  font-size: 80px;
+  font-weight: bold;
+  animation: countdown-pulse 0.5s ease-in-out;
+}
+
+/* 倒计时动画 */
+.countdown-fade-enter-active,
+.countdown-fade-leave-active {
+  transition: all 0.5s ease;
+}
+
+.countdown-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.countdown-fade-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.countdown-fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.countdown-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+@keyframes countdown-pulse {
+  0% {
+    transform: scale(1);
   }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
   
   .cell-card-3 {
     font-size: 28px;
