@@ -12,6 +12,35 @@ interface Env {
 	DB: D1Database;
 }
 
+// 公共查询：返回指定 userId 的历史最佳与当天最佳
+async function queryUserBest(env: Env, userId: string | null) {
+	const historyBestStmt = env.DB.prepare(`
+		SELECT size, MIN(duration) as best_duration
+		FROM schulte_time 
+		WHERE user_id = ?
+		GROUP BY size
+		ORDER BY size
+	`);
+	const todayBestStmt = env.DB.prepare(`
+		SELECT size, MIN(duration) as best_duration
+		FROM schulte_time 
+		WHERE user_id = ? 
+		AND DATE(created_time, 'unixepoch') = DATE('now')
+		GROUP BY size
+		ORDER BY size
+	`);
+
+	const [historyBestResult, todayBestResult] = await Promise.all([
+		historyBestStmt.bind(userId).all(),
+		todayBestStmt.bind(userId).all()
+	])
+
+	return {
+		historyBest: historyBestResult.results,
+		todayBest: todayBestResult.results
+	}
+}
+
 export default {
 	async fetch(request: Request, env: Env) {
 		const url = new URL(request.url);
@@ -44,36 +73,17 @@ export default {
 						body.selectedType
 					).run();
 
-					// 查询用户在所有尺寸下的历史最佳记录
-					const historyBestStmt = env.DB.prepare(`
-						SELECT size, MIN(duration) as best_duration
-						FROM schulte_time 
-						WHERE user_id = ?
-						GROUP BY size
-						ORDER BY size
-					`);
-					
-					const historyBestResult = await historyBestStmt.bind(body.userId || null).all();
-					
-					// 查询用户当天在所有尺寸下的最佳记录
-					const todayBestStmt = env.DB.prepare(`
-						SELECT size, MIN(duration) as best_duration
-						FROM schulte_time 
-						WHERE user_id = ? 
-						AND DATE(created_time, 'unixepoch') = DATE('now')
-						GROUP BY size
-						ORDER BY size
-					`);
-					
-					const todayBestResult = await todayBestStmt.bind(body.userId || null).all();
+
+					// 查询该用户的历史/当天最佳
+					const best = await queryUserBest(env, body.userId || null)
 
 					return Response.json({
 						success: true,
 						message: '数据保存成功',
 						data: {
 							id: result.meta.last_row_id,
-							historyBest: historyBestResult.results,
-							todayBest: todayBestResult.results
+							historyBest: best.historyBest,
+							todayBest: best.todayBest
 						}
 					});
 
@@ -98,34 +108,13 @@ export default {
 						}, { status: 400 });
 					}
 
-					// 查询用户在所有尺寸下的历史最佳记录
-					const historyBestStmt = env.DB.prepare(`
-						SELECT size, MIN(duration) as best_duration
-						FROM schulte_time 
-						WHERE user_id = ?
-						GROUP BY size
-						ORDER BY size
-					`);
-					
-					const historyBestResult = await historyBestStmt.bind(userId).all();
-					
-					// 查询用户当天在所有尺寸下的最佳记录
-					const todayBestStmt = env.DB.prepare(`
-						SELECT size, MIN(duration) as best_duration
-						FROM schulte_time 
-						WHERE user_id = ? 
-						AND DATE(created_time, 'unixepoch') = DATE('now')
-						GROUP BY size
-						ORDER BY size
-					`);
-					
-					const todayBestResult = await todayBestStmt.bind(userId).all();
+					const best = await queryUserBest(env, userId)
 
 					return Response.json({
 						success: true,
 						data: {
-							historyBest: historyBestResult.results,
-							todayBest: todayBestResult.results
+							historyBest: best.historyBest,
+							todayBest: best.todayBest
 						}
 					});
 

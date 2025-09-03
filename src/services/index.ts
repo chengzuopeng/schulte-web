@@ -18,8 +18,6 @@ const services = {
       deviceId: '',
     };
 
-    console.log('发送游戏结果:', requestData);
-
     const res = await fetch(`${base}/result`, {
       method: 'POST',
       headers: {
@@ -29,6 +27,21 @@ const services = {
     });
     
     return await res.json();
+  },
+
+  // 获取用户记录：历史最佳 + 当天最佳
+  getRecord: async (userIdParam?: string) => {
+    try {
+      const uid = userIdParam || appManager.getUserId() || ''
+      if (!uid) {
+        return { success: false, data: { historyBest: [], todayBest: [] } }
+      }
+      const res = await fetch(`${base}/record?userId=${encodeURIComponent(uid)}`)
+      const json = await res.json()
+      return json
+    } catch (e) {
+      return { success: false, data: { historyBest: [], todayBest: [] } }
+    }
   }
 }
 

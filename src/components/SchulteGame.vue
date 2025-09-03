@@ -181,8 +181,7 @@ async function fetchUserRecords() {
   try {
     const userId = await appManager.getUserId()
     if (!userId) return
-    const res = await fetch(`/api/record?userId=${userId}`)
-    const json = await res.json()
+    const json = await services.getRecord(userId)
     if (json?.success && json?.data) {
       userRecords.historyBest = json.data.historyBest || []
       userRecords.todayBest = json.data.todayBest || []
