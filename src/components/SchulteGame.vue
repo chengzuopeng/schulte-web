@@ -761,10 +761,10 @@ onUnmounted(() => {
     padding-bottom: 120px;
   }
   
-  .grid-container {
+  /* .grid-container {
     width: 300px;
     height: 300px;
-  }
+  } */
   
   .countdown {
     font-size: 100px;
@@ -793,10 +793,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
-  .grid-container {
+  /* .grid-container {
     width: 280px;
     height: 280px;
-  }
+  } */
   
   .countdown {
   font-size: 80px;
