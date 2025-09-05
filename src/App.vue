@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import SchulteGame from '@/components/SchulteGame.vue'
 </script>
 
 <template>
-  <SchulteGame />
+  <router-view />
 </template>
 
 <style>

@@ -10,14 +10,6 @@
         @clickItem="(e: ClickItemEvent) => sizeOption = e.currentIndex" 
       />
       
-      <div class="option-label">选中效果</div>
-      <SegmentedControl 
-        activeColor="#f79066" 
-        :current="selectedType" 
-        :values="selectItems" 
-        @clickItem="(e: ClickItemEvent) => selectedType = e.currentIndex" 
-      />
-      
       <div class="option-label">方格背景颜色</div>
       <SegmentedControl 
         activeColor="#73c2c4" 
@@ -58,8 +50,8 @@
     <div class="game-section" v-else>
       <div class="score-bar">
         <div class="score-item">
-          <div>下一个</div>
-          <div>{{ currentIndex }}</div>
+          <div>关卡</div>
+          <div>{{ currentLevel }}/{{ maxLevel }}</div>
         </div>
         <div class="score-item">
           <div>用时</div>
@@ -78,6 +70,14 @@
               </div>
             </Transition>
             
+            <!-- 游戏阶段提示 -->
+            <div v-if="gamePhase === 'waiting'" class="phase-hint">
+              记住这些数字的位置，点击 1 开始
+            </div>
+            <div v-else-if="gamePhase === 'clicking'" class="phase-hint">
+              按顺序点击：{{ nextExpectedNumber }}
+            </div>
+            
             <!-- 游戏网格 -->
             <div 
               v-show="countdownType !== 0 || countdown === 0" 
@@ -89,27 +89,29 @@
                 :class="[
                   'cell-card',
                   `cell-card-${gridSize}`,
-                  background === 1 ? 'cell-card-bg0' : (background === 2 ? `cell-card-bg${bgClassList[index]}` : ''),
-                  cell.clicked ? selectMap[selectedType] : '',
-                  cell.isPressed ? 'cell-card-pressed' : ''
+                  !cell.hasNumber ? 'cell-card-bg0' : (background === 0 ? '' : (background === 1 ? `cell-card-bg${bgClassList[index]}` : '')),
+                  cell.clicked ? 'cell-card-clicked' : '',
+                  cell.isPressed ? 'cell-card-pressed' : '',
+                  cell.isErrorShaking ? 'cell-card-error' : ''
                 ]"
                 @touchstart="cellPress(index)"
                 @touchend="cellRelease(index)"
                 @mousedown="cellPress(index)"
                 @mouseup="cellRelease(index)"
+                :disabled="false"
               >
-                {{ cell.value }}
+                {{ showNumber(cell) }}
               </button>
             </div>
           </div>
           <div class="score-section" v-else-if="state === 3">
-            <div>本次用时</div>
-            <div>{{ formatMilliseconds(timeCounter) }}</div>
+            <div>练习完成！</div>
+            <div>总用时：{{ formatMilliseconds(timeCounter) }}</div>
           </div>
         </div>
       </div>
       <div class="footer">
-        <button class="restart-button" @click="resetGrid">重新开始</button>
+        <button class="restart-button" @click="resetGame">重新开始</button>
         <button class="back-button" @click="goHome">返回</button>
       </div>
     </div>
@@ -117,34 +119,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted, reactive } from 'vue'
-import services from '@/services'
-import { formatMilliseconds } from '../utils/time.ts'
-import SegmentedControl from './SegmentedControl.vue'
-import Transition from './Transition.vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { formatMilliseconds } from '@/utils/time'
+import SegmentedControl from '@/components/SegmentedControl.vue'
+import Transition from '@/components/Transition.vue'
+import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
+import { initMobileOptimization } from '@/utils/mobile-optimization'
+import { audioManager } from '@/utils/audio-cache'
+import { swManager } from '@/utils/sw-manager'
 
 // 类型定义
 interface GridCell {
   value: number
+  hasNumber: boolean
   clicked: boolean
   isPressed: boolean
+  isErrorShaking: boolean
 }
 
 interface ClickItemEvent {
   currentIndex: number
 }
 
-const COUNTDONW_TIME = 3
+const COUNTDOWN_TIME = 3
 
 // 开始界面逻辑
 const sizeOption = ref(0)
 const sizeItems = ['3×3', '4×4', '5×5', '6×6', '7×7', '8×8']
 
-const background = ref(2)
-const bgItems = ['默认', '白色', '七彩']
-
-const selectedType = ref(0)
-const selectItems = ['选中', '消失', '不选中']
+const background = ref(1)
+const bgItems = ['默认', '七彩']
 
 const vibrate = ref(0)
 const vibrateItems = ['开启', '关闭']
@@ -157,98 +161,85 @@ const countdownItems = ['开启', '关闭']
 
 let startTime = 0
 const timeCounter = ref(0)
-const countdown = ref(COUNTDONW_TIME)
+const countdown = ref(COUNTDOWN_TIME)
 
-const state = ref(1)
-let clickAudio: HTMLAudioElement | null = null
-let errorAudio: HTMLAudioElement | null = null
+const state = ref(1) // 1: 开始界面, 2: 游戏界面, 3: 结果界面
+const gamePhase = ref<'waiting' | 'clicking'>('waiting') // 游戏阶段
+const currentLevel = ref(1) // 当前关卡
+const maxLevel = ref(2) // 最大关卡数
+const nextExpectedNumber = ref(1) // 下一个期望的数字
+const numbersHidden = ref(false) // 数字是否已隐藏
 
-let timer: number | undefined
-let countdownTimer: number | undefined
+let timer: ReturnType<typeof setInterval> | undefined
+let countdownTimer: ReturnType<typeof setInterval> | undefined
+let phaseTimer: ReturnType<typeof setTimeout> | undefined
 let bgClassList: number[] = []
 
-import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
-import { initMobileOptimization } from '@/utils/mobile-optimization'
-import { audioManager } from '@/utils/audio-cache'
-import { swManager } from '@/utils/sw-manager'
+// 游戏界面逻辑
+const grid = ref<GridCell[]>([])
+const gridSize = computed(() => {
+  return sizeOption.value + 3
+})
 
-// 用户记录数据结构与状态
-interface UserRecord { historyBest: { size: number; best_duration: number }[]; todayBest: { size: number; best_duration: number }[] }
-const userRecords = reactive<UserRecord>({ historyBest: [], todayBest: [] })
-
-// 静默获取用户记录并写入本地缓存（不阻塞渲染）
-async function fetchUserRecords() {
-  try {
-    const userId = await appManager.getUserId()
-    if (!userId) return
-    const json = await services.getRecord(userId)
-    if (json?.success && json?.data) {
-      userRecords.historyBest = json.data.historyBest || []
-      userRecords.todayBest = json.data.todayBest || []
-      localStorage.setItem('schulte_user_records', JSON.stringify(json.data))
-    }
-  } catch (e) {
-    const cached = localStorage.getItem('schulte_user_records')
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached)
-        userRecords.historyBest = parsed.historyBest || []
-        userRecords.todayBest = parsed.todayBest || []
-      } catch {}
-    }
+const gridContainerStyle = computed(() => {
+  return {
+    '--grid-row-count': gridSize.value
   }
+})
+
+// 计算最大关卡数（根据方格尺寸）
+const updateMaxLevel = () => {
+  const totalCells = gridSize.value * gridSize.value
+  maxLevel.value = totalCells - 1 // 从2个数字开始，到全部方格
 }
 
-// 震动和音频API（使用鸿蒙app桥接工具）
+// 震动和音频处理
 const vibrateShortHandler = () => {
-  // 只在震动开启时执行
   if (vibrate.value === 0) {
     vibrateShort()
   }
 }
 
 const playAudioHandler = (type: string) => {
-  // 只在音效开启时执行
   if (audioType.value !== 0) {
-    // 根据类型映射到对应的声音
-    let soundType: 'success' | 'warning' | 'button' | 'error' = 'button';
+    let soundType: 'success' | 'warning' | 'button' | 'error' = 'button'
     
     switch (type) {
       case 'button':
-        soundType = 'button';
-        break;
+        soundType = 'button'
+        break
       case 'error':
-        soundType = 'error';
-        break;
+        soundType = 'error'
+        break
+      case 'success':
+        soundType = 'success'
+        break
       default:
-        soundType = 'button';
+        soundType = 'button'
     }
     
-    // 传递当前的audioType值
-    playSound(soundType, audioType.value);
+    playSound(soundType, audioType.value)
   }
 }
 
-// 统一的游戏反馈处理（只处理震动，音效在具体场景中处理）
 const handleGameFeedback = (isSuccess: boolean) => {
   if (vibrate.value === 0) {
     if (isSuccess) {
-      // 游戏成功震动
-      vibrateSuccess();
+      vibrateSuccess()
     } else {
-      // 游戏失败震动
-      vibrateFailure();
+      vibrateFailure()
     }
   }
 }
 
 const start = () => {
-  initGrid()
-  currentIndex.value = 1
+  updateMaxLevel()
+  currentLevel.value = 1
+  nextExpectedNumber.value = 1
   state.value = 2
   
   // 重置倒计时
-  countdown.value = COUNTDONW_TIME
+  countdown.value = COUNTDOWN_TIME
   
   const startCount = () => {
     startTime = Date.now()
@@ -263,122 +254,200 @@ const start = () => {
       if (countdown.value < 1) {
         clearInterval(countdownTimer)
         startCount()
+        initLevel()
       }
     }, 1000)
   } else {
     startCount()
+    initLevel()
   }
 }
 
-// 游戏界面逻辑
-const grid = ref<GridCell[]>([])
-const gridSize = computed(() => {
-  return sizeOption.value + 3
-})
-
-const gridContainerStyle = computed(() => {
-  return {
-    '--grid-row-count': gridSize.value
-  }
-})
-
-const currentIndex = ref(1)
-
-function initGrid() {
+// 初始化关卡
+const initLevel = () => {
   const totalCells = gridSize.value * gridSize.value
-  const values = Array.from({ length: totalCells }, (_, index) => index + 1)
-  shuffleArray(values)
+  
+  // 创建网格
   grid.value = []
   for (let i = 0; i < totalCells; i++) {
     grid.value.push({
-      value: values[i],
+      value: 0,
+      hasNumber: false,
       clicked: false,
-      isPressed: false
+      isPressed: false,
+      isErrorShaking: false
     })
   }
-}
-
-function shuffleArray(array: number[]) {
+  
+  // 随机生成背景色
   bgClassList = []
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[array[i], array[j]] = [array[j], array[i]]
+  for (let i = 0; i < totalCells; i++) {
     bgClassList[i] = Math.ceil(Math.random() * 7)
   }
-  bgClassList[0] = Math.ceil(Math.random() * 7)
+  
+  // 随机选择位置放置数字
+  const numbersToPlace = currentLevel.value + 1 // 从2个开始
+  const positions = getRandomPositions(totalCells, numbersToPlace)
+  
+  positions.forEach((pos, index) => {
+    grid.value[pos].value = index + 1
+    grid.value[pos].hasNumber = true
+  })
+  
+  // 直接进入等待阶段（等待用户点击数字1）
+  gamePhase.value = 'waiting'
+  numbersHidden.value = false
+  nextExpectedNumber.value = 1
+}
+
+// 获取随机位置
+const getRandomPositions = (total: number, count: number): number[] => {
+  const positions: number[] = []
+  const available = Array.from({ length: total }, (_, i) => i)
+  
+  for (let i = 0; i < count; i++) {
+    const randomIndex = Math.floor(Math.random() * available.length)
+    positions.push(available[randomIndex])
+    available.splice(randomIndex, 1)
+  }
+  
+  return positions
+}
+
+// 重置所有色块颜色为白色
+const resetCellColors = () => {
+  grid.value.forEach(cell => {
+    cell.hasNumber = false
+    cell.clicked = false
+    cell.value = 0
+  })
+}
+
+// 决定是否显示数字
+const showNumber = (cell: GridCell): string => {
+  if (!cell.hasNumber) return ''
+  
+  // 在waiting阶段显示所有数字
+  if (gamePhase.value === 'waiting') {
+    return cell.value.toString()
+  }
+  
+  // 在clicking阶段只显示已点击的数字
+  if (gamePhase.value === 'clicking' && cell.clicked) {
+    return cell.value.toString()
+  }
+  
+  return ''
 }
 
 function cellPress(index: number) {
   const currentCell = grid.value[index]
-  if (!currentCell.clicked) {
+  if ((gamePhase.value === 'waiting' || gamePhase.value === 'clicking') && currentCell.hasNumber && !currentCell.clicked) {
     currentCell.isPressed = true
   }
 }
 
 function cellRelease(index: number) {
-  vibrateShortHandler()
   const currentCell = grid.value[index]
-  if (!currentCell.clicked) {
-    if (currentCell.value === currentIndex.value) {
+  
+  if (gamePhase.value !== 'waiting' && gamePhase.value !== 'clicking') {
+    currentCell.isPressed = false
+    return
+  }
+  
+  vibrateShortHandler()
+  
+  if (!currentCell.hasNumber) {
+    currentCell.isPressed = false
+    return
+  }
+  
+  if (currentCell.clicked) {
+    currentCell.isPressed = false
+    return
+  }
+  
+  // 如果在waiting阶段，检查是否点击了数字1
+  if (gamePhase.value === 'waiting') {
+    if (currentCell.value === 1) {
+      // 点击了数字1，进入clicking阶段
+      gamePhase.value = 'clicking'
+      numbersHidden.value = true
       currentCell.clicked = true
-      currentIndex.value++
-      if (currentIndex.value > gridSize.value * gridSize.value) {
-        // 游戏成功，使用app管理器的成功反馈
-        handleGameFeedback(true)
-        state.value = 3
-        sendResult()
-        closeGame()
-        currentIndex.value--
-      } else {
-        // 点击正确，播放按钮音效
-        playAudioHandler('button')
-      }
+      nextExpectedNumber.value = 2
+      playAudioHandler('button')
     } else {
-      // 游戏失败，使用app管理器的失败反馈
+      // 点击错误
+      playAudioHandler('error')
       handleGameFeedback(false)
+      
+      // 显示错误动画
+      currentCell.isErrorShaking = true
+      setTimeout(() => {
+        currentCell.isErrorShaking = false
+      }, 500)
     }
     currentCell.isPressed = false
+    return
   }
-}
-
-const sendResult = () => {
-  services.sendResult({
-    duration: timeCounter.value,
-    size: gridSize.value,
-    selectedType: selectedType.value,
-  }).then((res: any) => {
-    // 静默更新本地记录数据（非阻塞）
-    if (res?.success && res?.data) {
-      userRecords.historyBest = res.data.historyBest || []
-      userRecords.todayBest = res.data.todayBest || []
-      localStorage.setItem('schulte_user_records', JSON.stringify({
-        historyBest: userRecords.historyBest,
-        todayBest: userRecords.todayBest
-      }))
+  
+  // 检查是否点击了正确的数字
+  if (currentCell.value === nextExpectedNumber.value) {
+    // 点击正确
+    currentCell.clicked = true
+    nextExpectedNumber.value++
+    playAudioHandler('button')
+    
+    // 检查当前关卡是否完成
+    const currentLevelNumbers = currentLevel.value + 1
+    if (nextExpectedNumber.value > currentLevelNumbers) {
+      // 当前关卡完成
+      if (currentLevel.value >= maxLevel.value) {
+        // 游戏完成
+        handleGameFeedback(true)
+        state.value = 3
+        closeGame()
+      } else {
+        // 进入下一关卡
+        currentLevel.value++
+        playAudioHandler('success')
+        // 关卡完成后，立即重置并开始下一关
+        resetCellColors()
+        initLevel()
+      }
     }
-  }).catch(error => {
-    console.log('发送结果失败:', error)
-    // 即使失败也不影响用户体验
-  })
+  } else {
+    // 点击错误
+    playAudioHandler('error')
+    handleGameFeedback(false)
+    
+    // 显示错误动画
+    currentCell.isErrorShaking = true
+    setTimeout(() => {
+      currentCell.isErrorShaking = false
+    }, 500)
+  }
+  
+  currentCell.isPressed = false
 }
 
-function resetGrid() {
+function resetGame() {
   closeGame()
   start()
 }
 
 function closeGame() {
   grid.value = []
-  countdown.value = COUNTDONW_TIME
+  countdown.value = COUNTDOWN_TIME
   timer && clearInterval(timer)
   countdownTimer && clearInterval(countdownTimer)
+  phaseTimer && clearTimeout(phaseTimer)
   
   // 清理定时器引用
   timer = undefined
   countdownTimer = undefined
+  phaseTimer = undefined
 }
-
-const selectMap = ['cell-card-clicked', 'cell-card-disappear', '']
 
 function goHome() {
   timeCounter.value = 0
@@ -388,37 +457,41 @@ function goHome() {
 
 onMounted(async () => {
   // 初始化移动端优化
-  initMobileOptimization();
+  initMobileOptimization()
   
   // 注册Service Worker（实现离线缓存）
   try {
-    await swManager.register();
-    console.log('Service Worker注册完成');
+    await swManager.register()
+    console.log('Service Worker注册完成')
   } catch (error) {
-    console.error('Service Worker注册失败:', error);
+    console.error('Service Worker注册失败:', error)
   }
   
   // 初始化音频管理器（预加载所有音频文件）
   try {
-    await audioManager.init();
-    console.log('音频管理器初始化完成');
+    await audioManager.init()
+    console.log('音频管理器初始化完成')
   } catch (error) {
-    console.error('音频管理器初始化失败:', error);
+    console.error('音频管理器初始化失败:', error)
   }
   
   // 在后台静默初始化appManager，不阻塞页面渲染
   appManager.init().catch(error => {
-    console.error('AppManager初始化失败:', error);
-  });
-  
-  // 静默拉取用户记录，不阻塞渲染
-  fetchUserRecords().catch(() => {})
+    console.error('AppManager初始化失败:', error)
+  })
 })
 
 onUnmounted(() => {
   timer && clearInterval(timer)
   countdownTimer && clearInterval(countdownTimer)
+  phaseTimer && clearTimeout(phaseTimer)
 })
+
+// 更新待办事项
+const updateTodos = () => {
+  // 标记分析完成，开始实现
+}
+updateTodos()
 </script>
 
 <style scoped>
@@ -430,77 +503,6 @@ onUnmounted(() => {
   background-color: #fff;
   display: flex;
   flex-direction: column;
-}
-
-/* 顶部状态栏 */
-.status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background-color: #fff;
-  border-bottom: 1px solid #f0f0f0;
-  height: 44px;
-  flex-shrink: 0;
-}
-
-.status-left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.time {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.arrow {
-  font-size: 12px;
-  color: #666;
-}
-
-.status-center {
-  flex: 1;
-  text-align: center;
-}
-
-.app-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #f09491;
-  margin: 0;
-}
-
-.status-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-icons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #666;
-}
-
-.nav-dots {
-  display: flex;
-  gap: 4px;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #ddd;
-}
-
-.dot.active {
-  background-color: #f09491;
 }
 
 .start-screen {
@@ -655,6 +657,16 @@ onUnmounted(() => {
   font-weight: bold;
 }
 
+.phase-hint {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  width: 100%;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .grid-item {
   width: calc(100% / var(--grid-row-count));
   height: calc(100% / var(--grid-row-count));
@@ -686,9 +698,30 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.cell-card:disabled {
+  cursor: default;
+}
+
 .cell-card-pressed {
   background-color: #e48d5f !important;
   color: #fff !important;
+}
+
+.cell-card-clicked {
+  background-color: #4CAF50;
+  color: #fff;
+}
+
+.cell-card-error {
+  animation: errorShake 0.5s ease-in-out;
+  background-color: #f44336 !important;
+  color: #fff !important;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
 .cell-card-bg0 {
@@ -721,15 +754,6 @@ onUnmounted(() => {
 
 .cell-card-bg7 {
   background-color: #bebdee;
-}
-
-.cell-card-clicked {
-  background-color: #e48d5f;
-  color: #fff;
-}
-
-.cell-card-disappear {
-  display: none;
 }
 
 .cell-card-3 {
@@ -787,64 +811,6 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-/* 移动端适配 */
-@media (max-width: 768px) {
-  .container {
-    padding: 0;
-  }
-  
-  .start-screen {
-    padding: 15px;
-  }
-  
-  .game-section {
-    padding: 12px;
-    padding-bottom: 120px;
-  }
-  
-  /* .grid-container {
-    width: 300px;
-    height: 300px;
-  } */
-  
-  .countdown {
-    font-size: 100px;
-  }
-  
-  .status-bar {
-    padding: 6px 12px;
-    height: 40px;
-  }
-  
-  .app-title {
-    font-size: 16px;
-  }
-  
-  .time {
-    font-size: 12px;
-  }
-  
-  .score-bar {
-    margin-bottom: 10px;
-  }
-  
-  .game-body {
-    margin-bottom: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  /* .grid-container {
-    width: 280px;
-    height: 280px;
-  } */
-  
-  .countdown {
-  font-size: 80px;
-  font-weight: bold;
-  animation: countdown-pulse 0.5s ease-in-out;
-}
-
 /* 倒计时动画 */
 .countdown-fade-enter-active,
 .countdown-fade-leave-active {
@@ -871,17 +837,40 @@ onUnmounted(() => {
   transform: scale(0.5);
 }
 
-@keyframes countdown-pulse {
-  0% {
-    transform: scale(1);
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .container {
+    padding: 0;
   }
-  50% {
-    transform: scale(1.2);
+  
+  .start-screen {
+    padding: 15px;
   }
-  100% {
-    transform: scale(1);
+  
+  .game-section {
+    padding: 12px;
+    padding-bottom: 120px;
+  }
+  
+  .countdown {
+    font-size: 100px;
+  }
+  
+  .score-bar {
+    margin-bottom: 10px;
+  }
+  
+  .game-body {
+    margin-bottom: 10px;
   }
 }
+
+@media (max-width: 480px) {
+  .countdown {
+    font-size: 80px;
+    font-weight: bold;
+    animation: countdown-pulse 0.5s ease-in-out;
+  }
   
   .cell-card-3 {
     font-size: 28px;
@@ -916,24 +905,6 @@ onUnmounted(() => {
     padding-bottom: 110px;
   }
   
-  .status-bar {
-    padding: 4px 8px;
-    height: 36px;
-  }
-  
-  .app-title {
-    font-size: 14px;
-  }
-  
-  .status-icons {
-    font-size: 10px;
-  }
-  
-  .nav-dots .dot {
-    width: 4px;
-    height: 4px;
-  }
-  
   .score-bar {
     margin-bottom: 8px;
   }
@@ -945,6 +916,18 @@ onUnmounted(() => {
   .footer {
     gap: 8px;
     padding: 12px;
+  }
+}
+
+@keyframes countdown-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 </style>
