@@ -395,6 +395,7 @@ function cellRelease(index: number) {
   if (currentCell.value === nextExpectedNumber.value) {
     // 点击正确
     currentCell.clicked = true
+    currentCell.isPressed = false // 立即重置按压状态
     nextExpectedNumber.value++
     playAudioHandler('button')
     
@@ -411,10 +412,13 @@ function cellRelease(index: number) {
         // 进入下一关卡
         currentLevel.value++
         playAudioHandler('success')
-        // 关卡完成后，立即重置并开始下一关
-        resetCellColors()
-        initLevel()
+        // 关卡完成后，延迟100ms再开始下一关
+        setTimeout(() => {
+          resetCellColors()
+          initLevel()
+        }, 100)
       }
+      return // 关卡完成后直接返回，避免执行后续逻辑
     }
   } else {
     // 点击错误
