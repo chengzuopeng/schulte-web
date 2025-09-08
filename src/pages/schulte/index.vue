@@ -52,10 +52,15 @@
       
       <div class="option-label">&nbsp;</div>
       <button class="start-button" @click="start">开始</button>
+      
+      <!-- 数据统计图标 -->
+      <button class="stats-icon" @click="showStatsModal = true">
+        📊
+      </button>
     </div>
 
     <!-- 游戏界面 -->
-    <div class="game-section" v-else>
+    <div class="game-section" v-else-if="state === 2">
       <div class="score-bar">
         <div class="score-item">
           <div>下一个</div>
@@ -69,8 +74,8 @@
         </div>
       </div>
       <div class="game-body">
-        <div :class="['grid-container', state === 3 ? 'bg-red' : '']">
-          <div :style="gridContainerStyle" v-if="state === 2" class="grid-wrap">
+        <div class="grid-container">
+          <div :style="gridContainerStyle" class="grid-wrap">
             <!-- 倒计时显示 -->
             <Transition name="countdown-fade" v-if="countdownType === 0 && countdown > 0">
               <div class="countdown" :key="countdown">
@@ -102,9 +107,68 @@
               </button>
             </div>
           </div>
-          <div class="score-section" v-else-if="state === 3">
-            <div>本次用时</div>
-            <div>{{ formatMilliseconds(timeCounter) }}</div>
+        </div>
+      </div>
+      <div class="footer">
+        <button class="restart-button" @click="resetGrid">重新开始</button>
+        <button class="back-button" @click="goHome">返回</button>
+      </div>
+    </div>
+
+    <!-- 结果界面 -->
+    <div class="stats-section" v-else-if="state === 3">
+      <!-- 成绩统计容器 -->
+      <div class="stats-container">
+        <div class="stat-item">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatMilliseconds(timeCounter) }}</div>
+            <div class="stat-label">用时</div>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon">{{errorCount ? '❌' : '✅'}}</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ errorCount }}</div>
+            <div class="stat-label">错误次数</div>
+          </div>
+        </div>
+        
+        <!-- 分数展示 -->
+        <div v-if="gameScore !== null" class="stat-item score-item">
+          <div class="stat-icon score-icon">🎯</div>
+          <div class="stat-content">
+            <div class="score-text">
+              超过了 <span class="score-highlight">{{ gameScore }}%</span> 的人
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 详细统计 -->
+      <div v-if="gameStats" class="result-details">
+        <div class="detail-row" v-if="gameStats.personalBest !== null">
+          <div class="detail-icon">🏆</div>
+          <div class="detail-content">
+            <div class="detail-label">个人最佳</div>
+            <div class="detail-value">{{ formatMilliseconds(gameStats.personalBest) }}</div>
+          </div>
+        </div>
+        
+        <div class="detail-row">
+          <div class="detail-icon">📅</div>
+          <div class="detail-content">
+            <div class="detail-label">今日练习</div>
+            <div class="detail-value">第{{ gameStats.todayCount }}次</div>
+          </div>
+        </div>
+        
+        <div class="detail-row" v-if="gameStats.todayBest !== null">
+          <div class="detail-icon">⭐</div>
+          <div class="detail-content">
+            <div class="detail-label">今日最佳</div>
+            <div class="detail-value">{{ formatMilliseconds(gameStats.todayBest) }}</div>
           </div>
         </div>
       </div>
@@ -113,6 +177,11 @@
         <button class="back-button" @click="goHome">返回</button>
       </div>
     </div>
+    
+    <!-- 数据统计弹窗 -->
+    <SchulteStatsModal 
+      v-model:visible="showStatsModal"
+    />
   </div>
 </template>
 
@@ -122,6 +191,9 @@ import services from '@/services/index'
 import { formatMilliseconds } from '@/utils/time'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import Transition from '@/components/Transition.vue'
+import SchulteStatsModal from '@/components/SchulteStatsModal.vue'
+import { gameDataManager, type GameStatistics } from '@/utils/game-data-manager'
+import { schulteScore } from '@/utils/schulte-score'
 
 // 类型定义
 interface GridCell {
@@ -152,7 +224,7 @@ const vibrateItems = ['开启', '关闭']
 const audioType = ref(0)
 const audioItems = ['关闭', '音效1', '音效2', '音效3', '音效4', '音效5', '音效6']
 
-const countdownType = ref(0)
+const countdownType = ref(1)
 const countdownItems = ['开启', '关闭']
 
 let startTime = 0
@@ -175,6 +247,18 @@ import { swManager } from '@/utils/sw-manager'
 // 用户记录数据结构与状态
 interface UserRecord { historyBest: { size: number; best_duration: number }[]; todayBest: { size: number; best_duration: number }[] }
 const userRecords = reactive<UserRecord>({ historyBest: [], todayBest: [] })
+
+// 游戏统计数据
+const gameStats = ref<GameStatistics | null>(null)
+
+// 数据统计弹窗
+const showStatsModal = ref(false)
+
+// 错误次数统计
+const errorCount = ref(0)
+
+// 游戏分数
+const gameScore = ref<number | null>(null)
 
 // 静默获取用户记录并写入本地缓存（不阻塞渲染）
 async function fetchUserRecords() {
@@ -246,6 +330,7 @@ const start = () => {
   initGrid()
   currentIndex.value = 1
   state.value = 2
+  errorCount.value = 0  // 重置错误次数
   
   // 重置倒计时
   countdown.value = COUNTDONW_TIME
@@ -325,6 +410,10 @@ function cellRelease(index: number) {
       if (currentIndex.value > gridSize.value * gridSize.value) {
         // 游戏成功，使用app管理器的成功反馈
         handleGameFeedback(true)
+        
+        // 保存游戏数据和获取统计信息
+        saveGameData()
+        
         state.value = 3
         // sendResult()
         closeGame()
@@ -336,6 +425,7 @@ function cellRelease(index: number) {
     } else {
       // 游戏失败，使用app管理器的失败反馈
       handleGameFeedback(false)
+      errorCount.value++  // 增加错误计数
     }
     currentCell.isPressed = false
   }
@@ -380,10 +470,46 @@ function closeGame() {
 
 const selectMap = ['cell-card-clicked', 'cell-card-disappear', '']
 
+// 保存游戏数据并获取统计信息
+function saveGameData() {
+  try {
+    const currentSize = gridSize.value
+    const duration = timeCounter.value
+    const errors = errorCount.value
+    const createdTime = Date.now()
+    
+    // 计算游戏分数
+    try {
+      gameScore.value = schulteScore(currentSize, duration)
+    } catch (error) {
+      console.warn('计算Schulte分数失败:', error)
+      gameScore.value = null
+    }
+    
+    // 保存游戏记录
+    const success = gameDataManager.addGameRecord('schulte', {
+      duration,
+      size: currentSize,
+      createdTime,
+      errorCount: errors
+    })
+    
+    if (success) {
+      // 获取统计数据
+      gameStats.value = gameDataManager.getGameStatistics('schulte', duration, currentSize, errors)
+    }
+  } catch (error) {
+    console.warn('保存Schulte游戏数据失败:', error)
+    // 即使保存失败也不影响用户体验
+  }
+}
+
 function goHome() {
   timeCounter.value = 0
   closeGame()
   state.value = 1
+  gameStats.value = null  // 清空统计数据
+  gameScore.value = null  // 清空游戏分数
 }
 
 onMounted(async () => {
@@ -510,6 +636,7 @@ onUnmounted(() => {
   justify-content: center;
   padding: 20px;
   overflow-y: auto;
+  position: relative;
 }
 
 .score-bar {
@@ -526,7 +653,6 @@ onUnmounted(() => {
 .score-item {
   flex: 1;
   height: 100%;
-  background-color: #f6f6f6;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -539,6 +665,13 @@ onUnmounted(() => {
   line-height: 25px;
   font-size: 16px;
   text-align: center;
+}
+
+.score-item .score-icon {
+  height: 56px;
+  line-height: 56px;
+  font-size: 42px;
+  width: 56px;
 }
 
 .time-wrap {
@@ -580,6 +713,35 @@ onUnmounted(() => {
 .start-button:active {
   transform: translateY(0);
   box-shadow: 0 2px 8px rgba(240, 148, 145, 0.3);
+}
+
+.stats-icon {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border: none;
+  background: rgba(240, 148, 145, 0.1);
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(240, 148, 145, 0.2);
+}
+
+.stats-icon:hover {
+  background: rgba(240, 148, 145, 0.2);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(240, 148, 145, 0.3);
+}
+
+.stats-icon:active {
+  transform: scale(0.95);
 }
 
 .restart-button {
@@ -756,14 +918,204 @@ onUnmounted(() => {
   font-size: 18px;
 }
 
-.score-section {
-  color: #fff;
+.stats-section {
+  padding: 40px 30px 20px 30px;
+}
+/* 成绩统计容器 */
+.stats-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 380px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 32px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.08),
+    0 8px 25px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 1;
+  margin-bottom: 32px;
 }
 
-.score-section > div {
-  line-height: 40px;
-  font-size: 26px;
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+  transition: all 0.2s ease;
 }
+
+.stat-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.stat-item:hover {
+  background: rgba(99, 102, 241, 0.04);
+  margin: 0 -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  border-radius: 16px;
+}
+
+.stat-icon {
+  font-size: 28px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.stat-content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0c04a4;
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #64748b;
+  opacity: 0.9;
+}
+
+.score-item .stat-icon {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%);
+}
+
+.score-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4b5563;
+  line-height: 1.4;
+  width: 100%;
+}
+
+.score-highlight {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  display: inline-block;
+  margin: 0 4px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* 详细统计 */
+.result-details {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.85) 100%);
+  backdrop-filter: blur(20px);
+  border-radius: 18px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  z-index: 1;
+  position: relative;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+  transition: all 0.2s ease;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-row:hover {
+  background: rgba(99, 102, 241, 0.04);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: 12px;
+}
+
+.detail-icon {
+  font-size: 22px;
+  margin-right: 18px;
+  width: 28px;
+  text-align: center;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.detail-content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: #4b5563;
+  opacity: 0.9;
+}
+
+.detail-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0c04a4;
+}
+
+/* 动画效果 */
+@keyframes celebrateIcon {
+  0% {
+    transform: scale(0.3) rotate(-15deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40%, 43% {
+    transform: translateY(-20px);
+  }
+  70% {
+    transform: translateY(-10px);
+  }
+  90% {
+    transform: translateY(-4px);
+  }
+}
+
+/* 移动端适配 */
 
 .footer {
   position: fixed;
@@ -802,10 +1154,6 @@ onUnmounted(() => {
     padding-bottom: 120px;
   }
   
-  /* .grid-container {
-    width: 300px;
-    height: 300px;
-  } */
   
   .countdown {
     font-size: 100px;
@@ -834,10 +1182,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
-  /* .grid-container {
-    width: 280px;
-    height: 280px;
-  } */
   
   .countdown {
   font-size: 80px;
