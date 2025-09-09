@@ -12,10 +12,10 @@
           <!-- Size 筛选器 -->
           <div class="size-filter">
             <SegmentedControl 
-              :values="sizeOptions.map(opt => opt.label)"
-              :current="sizeOptions.findIndex(opt => opt.value === selectedSize)"
+              :values="sizeOptions.map((opt: SizeOption) => opt.label)"
+              :current="sizeOptions.findIndex((opt: SizeOption) => opt.value === selectedSize)"
               active-color="#f09491"
-              @click-item="({ currentIndex }) => selectedSize = sizeOptions[currentIndex].value"
+              @click-item="({ currentIndex }: ClickItemEvent) => selectedSize = sizeOptions[currentIndex].value"
             />
           </div>
           
@@ -64,10 +64,10 @@
               <!-- 图表选项 -->
               <div class="chart-options">
                 <SegmentedControl 
-                  :values="chartTypeOptions.map(opt => opt.label)"
-                  :current="chartTypeOptions.findIndex(opt => opt.value === chartType)"
+                  :values="chartTypeOptions.map((opt: ChartTypeOption) => opt.label)"
+                  :current="chartTypeOptions.findIndex((opt: ChartTypeOption) => opt.value === chartType)"
                   active-color="#f09491"
-                  @click-item="({ currentIndex }) => chartType = chartTypeOptions[currentIndex].value"
+                  @click-item="({ currentIndex }: ClickItemEvent) => chartType = chartTypeOptions[currentIndex].value"
                 />
               </div>
               
@@ -127,6 +127,21 @@ import { gameDataManager } from '@/utils/game-data-manager'
 import type { BaseGameRecord, GameType } from '@/utils/game-data-manager'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 
+// 类型定义
+interface ClickItemEvent {
+  currentIndex: number
+}
+
+interface SizeOption {
+  value: number | 'all'
+  label: string
+}
+
+interface ChartTypeOption {
+  value: 'time' | 'errors' | 'count'
+  label: string
+}
+
 interface Props {
   visible: boolean
   gameType?: GameType
@@ -156,7 +171,7 @@ const chartRef = ref<HTMLElement>()
 let chartInstance: echarts.ECharts | null = null
 
 // Size 选项（根据游戏类型动态生成）
-const sizeOptions = computed(() => {
+const sizeOptions = computed<SizeOption[]>(() => {
   if (props.gameType === 'color') {
     return [
       { value: 'all' as const, label: '全部' },
@@ -178,7 +193,7 @@ const sizeOptions = computed(() => {
 })
 
 // 图表类型选项
-const chartTypeOptions = [
+const chartTypeOptions: ChartTypeOption[] = [
   { value: 'time' as const, label: '时间' },
   { value: 'errors' as const, label: '错误次数' },
   { value: 'count' as const, label: '练习次数' }
