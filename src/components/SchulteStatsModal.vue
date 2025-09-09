@@ -5,7 +5,7 @@
         <div v-if="visible" class="modal-container" @click.stop>
           <!-- 头部 -->
           <div class="modal-header">
-            <h2 class="modal-title">Schulte练习数据</h2>
+            <h2 class="modal-title">{{ gameTitle }}练习数据</h2>
             <button class="close-button" @click="closeModal">×</button>
           </div>
           
@@ -124,17 +124,29 @@ import * as echarts from 'echarts'
 import dayjs from 'dayjs'
 import { formatMilliseconds } from '@/utils/time'
 import { gameDataManager } from '@/utils/game-data-manager'
-import type { BaseGameRecord } from '@/utils/game-data-manager'
+import type { BaseGameRecord, GameType } from '@/utils/game-data-manager'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 
 interface Props {
   visible: boolean
+  gameType?: GameType
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  gameType: 'schulte'
+})
 const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
+
+// 游戏标题映射
+const gameTitles: Record<GameType, string> = {
+  'schulte': '舒尔特方格',
+  'memory': '记忆力挑战',
+  'color': '注意力挑战'
+}
+
+const gameTitle = computed(() => gameTitles[props.gameType])
 
 // 组件状态
 const selectedSize = ref<number | 'all'>('all')
@@ -143,16 +155,27 @@ const chartType = ref<'time' | 'errors' | 'count'>('time')
 const chartRef = ref<HTMLElement>()
 let chartInstance: echarts.ECharts | null = null
 
-// Size 选项
-const sizeOptions = [
-  { value: 'all' as const, label: '全部' },
-  { value: 3, label: '3×3' },
-  { value: 4, label: '4×4' },
-  { value: 5, label: '5×5' },
-  { value: 6, label: '6×6' },
-  { value: 7, label: '7×7' },
-  { value: 8, label: '8×8' }
-]
+// Size 选项（根据游戏类型动态生成）
+const sizeOptions = computed(() => {
+  if (props.gameType === 'color') {
+    return [
+      { value: 'all' as const, label: '全部' },
+      { value: 10, label: '10题' },
+      { value: 20, label: '20题' },
+      { value: 30, label: '30题' }
+    ]
+  } else {
+    return [
+      { value: 'all' as const, label: '全部' },
+      { value: 3, label: '3×3' },
+      { value: 4, label: '4×4' },
+      { value: 5, label: '5×5' },
+      { value: 6, label: '6×6' },
+      { value: 7, label: '7×7' },
+      { value: 8, label: '8×8' }
+    ]
+  }
+})
 
 // 图表类型选项
 const chartTypeOptions = [
@@ -164,9 +187,9 @@ const chartTypeOptions = [
 // 获取所有记录
 const allRecords = computed(() => {
   try {
-    return gameDataManager.getAllGameRecords('schulte')
+    return gameDataManager.getAllGameRecords(props.gameType)
   } catch (error) {
-    console.warn('获取Schulte游戏记录失败:', error)
+    console.warn(`获取${props.gameType}游戏记录失败:`, error)
     return []
   }
 })
@@ -262,7 +285,12 @@ const chartData = computed(() => {
 const hasChartData = computed(() => chartData.value.length > 0)
 
 // 格式化函数
-const formatSize = (size: number) => `${size}×${size}`
+const formatSize = (size: number) => {
+  if (props.gameType === 'color') {
+    return `${size}题`
+  }
+  return `${size}×${size}`
+}
 const formatCreatedTime = (timestamp: number) => {
   return dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
 }

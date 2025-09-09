@@ -170,8 +170,9 @@
     </div>
     
     <!-- 数据统计弹窗 -->
-    <ColorStatsModal 
+    <SchulteStatsModal 
       v-model:visible="showStatsModal"
+      :gameType="'color'"
     />
   </div>
 </template>
@@ -181,12 +182,11 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { formatMilliseconds } from '@/utils/time'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import Transition from '@/components/Transition.vue'
-import ColorStatsModal from '@/components/ColorStatsModal.vue'
+import SchulteStatsModal from '@/components/SchulteStatsModal.vue'
 import { gameDataManager, type GameStatistics } from '@/utils/game-data-manager'
 import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
 import { initMobileOptimization } from '@/utils/mobile-optimization'
 import { audioManager } from '@/utils/audio-cache'
-import { swManager } from '@/utils/sw-manager'
 
 // 类型定义
 interface ColorOption {
@@ -495,13 +495,6 @@ onMounted(async () => {
   // 初始化移动端优化
   initMobileOptimization()
   
-  // 注册Service Worker（实现离线缓存）
-  try {
-    await swManager.register()
-    console.log('Service Worker注册完成')
-  } catch (error) {
-    console.error('Service Worker注册失败:', error)
-  }
   
   // 初始化音频管理器（预加载所有音频文件）
   try {

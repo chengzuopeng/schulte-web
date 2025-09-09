@@ -181,6 +181,7 @@
     <!-- 数据统计弹窗 -->
     <SchulteStatsModal 
       v-model:visible="showStatsModal"
+      :gameType="'schulte'"
     />
   </div>
 </template>
@@ -242,7 +243,6 @@ let bgClassList: number[] = []
 import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
 import { initMobileOptimization } from '@/utils/mobile-optimization'
 import { audioManager } from '@/utils/audio-cache'
-import { swManager } from '@/utils/sw-manager'
 
 // 用户记录数据结构与状态
 interface UserRecord { historyBest: { size: number; best_duration: number }[]; todayBest: { size: number; best_duration: number }[] }
@@ -516,13 +516,6 @@ onMounted(async () => {
   // 初始化移动端优化
   initMobileOptimization();
   
-  // 注册Service Worker（实现离线缓存）
-  try {
-    await swManager.register();
-    console.log('Service Worker注册完成');
-  } catch (error) {
-    console.error('Service Worker注册失败:', error);
-  }
   
   // 初始化音频管理器（预加载所有音频文件）
   try {
