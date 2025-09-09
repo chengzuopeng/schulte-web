@@ -199,22 +199,30 @@ const chartTypeOptions: ChartTypeOption[] = [
   { value: 'count' as const, label: '练习次数' }
 ]
 
-// 获取所有记录
-const allRecords = computed(() => {
+// 获取所有记录（使用ref以便手动刷新）
+const allRecords = ref<BaseGameRecord[]>([])
+
+// 刷新数据的方法
+const refreshData = () => {
   try {
-    return gameDataManager.getAllGameRecords(props.gameType)
+    allRecords.value = gameDataManager.getAllGameRecords(props.gameType)
   } catch (error) {
     console.warn(`获取${props.gameType}游戏记录失败:`, error)
-    return []
+    allRecords.value = []
   }
-})
+}
 
-// 根据选择的 size 过滤记录
+// 根据选择的 size 过滤记录，并按时间倒序排列（最新的在前）
 const filteredRecords = computed(() => {
+  let records: BaseGameRecord[]
   if (selectedSize.value === 'all') {
-    return allRecords.value
+    records = allRecords.value
+  } else {
+    records = allRecords.value.filter((record: BaseGameRecord) => record.size === selectedSize.value)
   }
-  return allRecords.value.filter((record: BaseGameRecord) => record.size === selectedSize.value)
+  
+  // 按创建时间倒序排列（最新的在前）
+  return records.sort((a: BaseGameRecord, b: BaseGameRecord) => b.createdTime - a.createdTime)
 })
 
 // 计算过滤后的统计信息
@@ -535,7 +543,10 @@ watch([chartData, activeTab, chartType], () => {
 // 监听可见性变化
 watch(() => props.visible, (visible) => {
   if (visible) {
-    // 模态框打开时，延迟初始化图表以确保DOM完全渲染
+    // 模态框打开时，首先刷新数据
+    refreshData()
+    
+    // 延迟初始化图表以确保DOM完全渲染
     setTimeout(() => {
       if (props.visible && activeTab.value === 'chart' && hasChartData.value && chartRef.value) {
         // 确保图表正确初始化
@@ -580,6 +591,8 @@ watch(activeTab, (newTab, oldTab) => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
+  // 初始化时加载数据
+  refreshData()
 })
 
 onUnmounted(() => {
