@@ -597,7 +597,7 @@ updateTodos()
 
 <style scoped>
 .container {
-  height: 100vh;
+  height: 100%;
   text-align: center;
   box-sizing: border-box;
   font-family: "Microsoft YaHei", 微软雅黑;

@@ -146,6 +146,17 @@
         </div>
       </div>
       
+      <!-- 段位展示 -->
+      <div v-if="currentRank" class="rank-display">
+        <div class="rank-container" :style="{ backgroundColor: currentRank.bgColor }">
+          <div class="rank-icon">{{ currentRank.icon }}</div>
+          <div class="rank-info">
+            <div class="rank-title">当前段位</div>
+            <div class="rank-name" :style="{ color: currentRank.color }">{{ currentRank.name }}</div>
+          </div>
+        </div>
+      </div>
+      
       <!-- 详细统计 -->
       <div v-if="gameStats" class="result-details">
         <div class="detail-row" v-if="gameStats.personalBest !== null">
@@ -207,6 +218,35 @@ interface ClickItemEvent {
   currentIndex: number
 }
 
+// 段位数据配置
+interface RankInfo {
+  name: string
+  icon: string
+  color: string
+  bgColor: string
+}
+
+const RANK_CONFIG: Record<string, RankInfo> = {
+  'bronze': { name: '青铜', icon: '🥉', color: '#CD7F32', bgColor: 'rgba(205, 127, 50, 0.1)' },
+  'silver': { name: '白银', icon: '🥈', color: '#C0C0C0', bgColor: 'rgba(192, 192, 192, 0.1)' },
+  'gold': { name: '黄金', icon: '🥇', color: '#FFD700', bgColor: 'rgba(255, 215, 0, 0.1)' },
+  'platinum': { name: '铂金', icon: '💎', color: '#E5E4E2', bgColor: 'rgba(229, 228, 226, 0.1)' },
+  'diamond': { name: '钻石', icon: '💍', color: '#B9F2FF', bgColor: 'rgba(185, 242, 255, 0.1)' },
+  'master': { name: '大师', icon: '👑', color: '#FF6B6B', bgColor: 'rgba(255, 107, 107, 0.1)' },
+  'king': { name: '王者', icon: '🏆', color: '#FF4757', bgColor: 'rgba(255, 71, 87, 0.1)' }
+}
+
+// 根据分数获取段位
+function getRankByScore(score: number): RankInfo {
+  if (score >= 99) return RANK_CONFIG.king
+  if (score >= 95) return RANK_CONFIG.master
+  if (score >= 90) return RANK_CONFIG.diamond
+  if (score >= 80) return RANK_CONFIG.platinum
+  if (score >= 70) return RANK_CONFIG.gold
+  if (score >= 60) return RANK_CONFIG.silver
+  return RANK_CONFIG.bronze
+}
+
 const COUNTDONW_TIME = 3
 
 // 开始界面逻辑
@@ -259,6 +299,12 @@ const errorCount = ref(0)
 
 // 游戏分数
 const gameScore = ref<number | null>(null)
+
+// 当前游戏的段位信息
+const currentRank = computed(() => {
+  if (gameScore.value === null) return null
+  return getRankByScore(gameScore.value)
+})
 
 // 静默获取用户记录并写入本地缓存（不阻塞渲染）
 async function fetchUserRecords() {
@@ -491,7 +537,8 @@ function saveGameData() {
       duration,
       size: currentSize,
       createdTime,
-      errorCount: errors
+      errorCount: errors,
+      score: gameScore.value || 0  // 保存分数，如果分数为null则保存0
     })
     
     if (success) {
@@ -542,7 +589,7 @@ onUnmounted(() => {
 
 <style scoped>
 .container {
-  height: 100vh;
+  height: 100%;
   text-align: center;
   box-sizing: border-box;
   font-family: "Microsoft YaHei", 微软雅黑;
@@ -646,6 +693,7 @@ onUnmounted(() => {
 .score-item {
   flex: 1;
   height: 100%;
+  background-color: #f6f6f6;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -1010,6 +1058,92 @@ onUnmounted(() => {
   display: inline-block;
   margin: 0 4px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* 段位展示 */
+.rank-display {
+  width: 100%;
+  margin: 20px 0;
+  animation: rankSlideIn 0.8s ease-out 0.3s both;
+}
+
+.rank-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 32px;
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.rank-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.6s ease;
+}
+
+.rank-container:hover::before {
+  left: 100%;
+}
+
+.rank-icon {
+  font-size: 40px;
+  margin-right: 16px;
+  animation: rankIconBounce 1.2s ease-in-out infinite;
+}
+
+.rank-info {
+  text-align: left;
+}
+
+.rank-title {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 500;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.rank-name {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes rankSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rankIconBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
 }
 
 /* 详细统计 */

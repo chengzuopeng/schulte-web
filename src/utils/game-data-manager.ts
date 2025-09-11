@@ -2,6 +2,8 @@
 // 负责localStorage的数据存储、读取和统计分析
 
 import dayjs from 'dayjs'
+import { checkInManager } from './checkin-manager'
+import { medalManager } from './medal-manager'
 
 // 游戏类型
 export type GameType = 'schulte' | 'memory' | 'color'
@@ -12,6 +14,7 @@ export interface BaseGameRecord {
   size: number
   createdTime: number
   errorCount: number  // 错误次数
+  score?: number      // 游戏分数（可选，仅Schulte游戏使用）
 }
 
 // Schulte游戏记录
@@ -157,11 +160,54 @@ class GameDataManager {
       // 更新个人最佳记录
       this.updatePersonalBest(gameType, record.size, record.duration)
       
+      // 触发签到检查（异步执行，不阻塞主流程）
+      this.triggerCheckInAndMedals(gameType, record, records)
+      
       return true
     } catch (error) {
       console.warn(`Failed to add game record for ${gameType}`, error)
       return false
     }
+  }
+
+  // 触发签到和奖章检查
+  private triggerCheckInAndMedals(gameType: GameType, record: GameRecord, allRecords: GameRecord[]): void {
+    try {
+      // 异步执行，避免阻塞主流程
+      setTimeout(() => {
+        try {
+          // 触发签到检查
+          const checkedIn = checkInManager.checkIn(gameType)
+          if (checkedIn) {
+            console.log('✓ 签到成功!')
+          }
+          
+          // 如果是Schulte游戏，检查奖章
+          if (gameType === 'schulte') {
+            const schulteRecords = allRecords as SchulteRecord[]
+            const newlyUnlocked = medalManager.checkMedals(schulteRecords.slice(0, -1), record as SchulteRecord)
+            
+            if (newlyUnlocked.length > 0) {
+              console.log('🏆 解锁新奖章:', newlyUnlocked)
+              // 这里可以触发奖章解锁的UI提示
+              this.onMedalsUnlocked?.(newlyUnlocked)
+            }
+          }
+        } catch (error) {
+          console.warn('签到或奖章检查失败:', error)
+        }
+      }, 100)
+    } catch (error) {
+      console.warn('触发签到和奖章检查失败:', error)
+    }
+  }
+
+  // 奖章解锁回调（可选）
+  private onMedalsUnlocked?: (medalIds: string[]) => void
+
+  // 设置奖章解锁回调
+  setMedalUnlockedCallback(callback: (medalIds: string[]) => void): void {
+    this.onMedalsUnlocked = callback
   }
 
   // 更新个人最佳记录

@@ -24,10 +24,11 @@ html, body {
 }
 
 #app {
-  height: 100vh;
+  height: 100%;
   font-family: "Microsoft YaHei", 微软雅黑, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: auto;
 }
 
 /* 移动端适配 */
