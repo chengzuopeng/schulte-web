@@ -183,15 +183,13 @@ class GameDataManager {
           }
           
           // 如果是Schulte游戏，检查奖章
-          if (gameType === 'schulte') {
-            const schulteRecords = allRecords as SchulteRecord[]
-            const newlyUnlocked = medalManager.checkMedals(schulteRecords.slice(0, -1), record as SchulteRecord)
-            
-            if (newlyUnlocked.length > 0) {
-              console.log('🏆 解锁新奖章:', newlyUnlocked)
-              // 这里可以触发奖章解锁的UI提示
-              this.onMedalsUnlocked?.(newlyUnlocked)
-            }
+          // 所有游戏都检查奖章（准确性类、坚持类、特殊类是共有的）
+          const newlyUnlocked = medalManager.checkMedalsForAllGames(gameType, allRecords.slice(0, -1), record)
+          
+          if (newlyUnlocked.length > 0) {
+            console.log('🏆 解锁新奖章:', newlyUnlocked)
+            // 这里可以触发奖章解锁的UI提示
+            this.onMedalsUnlocked?.(newlyUnlocked)
           }
         } catch (error) {
           console.warn('签到或奖章检查失败:', error)

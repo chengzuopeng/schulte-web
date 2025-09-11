@@ -137,6 +137,35 @@
         </div>
       </div>
       
+      <!-- 奖章入口 -->
+      <div class="medal-entrance" @click="goToMedalPage">
+        <div class="medal-entrance-container">
+          <div class="medal-entrance-left">
+            <div class="recent-medals">
+              <div 
+                v-for="medal in recentMedals" 
+                :key="medal.id" 
+                class="recent-medal-icon"
+                :title="medal.name"
+              >
+                {{ medal.icon }}
+              </div>
+              <div v-if="recentMedals.length === 0" class="no-medals">
+                🏆
+              </div>
+            </div>
+          </div>
+          <div class="medal-entrance-center">
+            <div class="medal-entrance-title">查看我的奖章收藏</div>
+            <div class="medal-entrance-subtitle">发现更多成就</div>
+          </div>
+          <div class="medal-entrance-right">
+            <div class="medal-progress">{{ medalStats.unlocked }}/{{ medalStats.total }}</div>
+            <div class="medal-arrow">›</div>
+          </div>
+        </div>
+      </div>
+      
       <!-- 详细统计 -->
       <div v-if="gameStats" class="result-details">
         <div class="detail-row" v-if="gameStats.personalBest !== null">
@@ -178,12 +207,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { formatMilliseconds } from '@/utils/time'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import Transition from '@/components/Transition.vue'
 import SchulteStatsModal from '@/components/SchulteStatsModal.vue'
 import { gameDataManager, type GameStatistics } from '@/utils/game-data-manager'
+import { gameSettingsManager, type ColorSettings } from '@/utils/game-settings-manager'
+import { medalManager } from '@/utils/medal-manager'
+import { useRouter } from 'vue-router'
 import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
 import { initMobileOptimization } from '@/utils/mobile-optimization'
 import { audioManager } from '@/utils/audio-cache'
@@ -201,6 +233,9 @@ interface ClickItemEvent {
 }
 
 const COUNTDOWN_TIME = 3
+
+// 路由实例
+const router = useRouter()
 
 // 更新后的颜色库 - 移除粉色和橙色，添加蓝色
 const colorLibrary = [
@@ -229,7 +264,7 @@ const vibrateItems = ['开启', '关闭']
 const audioType = ref(0)
 const audioItems = ['关闭', '音效1', '音效2', '音效3', '音效4', '音效5', '音效6']
 
-const countdownType = ref(1)
+const countdownType = ref(0)
 const countdownItems = ['开启', '关闭']
 
 // 游戏状态
@@ -249,6 +284,30 @@ let countdownTimer: ReturnType<typeof setInterval> | undefined
 
 // 游戏统计数据
 const gameStats = ref<GameStatistics | null>(null)
+
+// 奖章统计信息
+const medalStats = computed(() => {
+  try {
+    return medalManager.getMedalStats()
+  } catch (error) {
+    console.warn('获取奖章统计失败:', error)
+    return { total: 0, unlocked: 0, byRarity: {}, byCategory: {} }
+  }
+})
+
+// 最近解锁的奖章
+const recentMedals = computed(() => {
+  try {
+    const allMedals = medalManager.getAllUserMedals()
+    return allMedals
+      .filter(medal => medal.unlocked && medal.unlockedAt)
+      .sort((a, b) => (b.unlockedAt || 0) - (a.unlockedAt || 0))
+      .slice(0, 3)
+  } catch (error) {
+    console.warn('获取最近奖章失败:', error)
+    return []
+  }
+})
 
 // 数据统计弹窗
 const showStatsModal = ref(false)
@@ -491,7 +550,45 @@ function goHome() {
   gameStats.value = null  // 清空统计数据
 }
 
+// 加载游戏设置
+const loadGameSettings = () => {
+  try {
+    const settings = gameSettingsManager.getGameSettings('color') as ColorSettings
+    
+    optionCountIndex.value = settings.option
+    textInterference.value = settings.interfere
+    // Color游戏没有background设置，跳过
+    vibrate.value = settings.vibrate
+    countdownType.value = settings.countdownType
+    audioType.value = settings.audioType
+  } catch (error) {
+    console.warn('加载Color游戏设置失败:', error)
+  }
+}
+
+// 保存游戏设置
+const saveGameSettings = () => {
+  try {
+    const settings: ColorSettings = {
+      option: optionCountIndex.value,
+      interfere: textInterference.value,
+      selectedType: 0, // Color游戏没有selectedType，使用默认值
+      background: 0, // Color游戏没有background设置，使用默认值
+      vibrate: vibrate.value,
+      countdownType: countdownType.value,
+      audioType: audioType.value
+    }
+    
+    gameSettingsManager.saveGameSettings('color', settings)
+  } catch (error) {
+    console.warn('保存Color游戏设置失败:', error)
+  }
+}
+
 onMounted(async () => {
+  // 加载用户设置
+  loadGameSettings()
+  
   // 初始化移动端优化
   initMobileOptimization()
   
@@ -509,6 +606,16 @@ onMounted(async () => {
     console.error('AppManager初始化失败:', error)
   })
 })
+
+// 跳转到奖章页面
+const goToMedalPage = () => {
+  router.push('/medal')
+}
+
+// 监听设置变化并自动保存
+watch([optionCountIndex, textInterference, vibrate, countdownType, audioType], () => {
+  saveGameSettings()
+}, { deep: true })
 
 onUnmounted(() => {
   timer && clearInterval(timer)
@@ -1034,6 +1141,166 @@ onUnmounted(() => {
   font-weight: 600;
   color: #64748b;
   opacity: 0.9;
+}
+
+/* 奖章入口 */
+.medal-entrance {
+  width: 100%;
+  margin: 20px 0;
+  cursor: pointer;
+  animation: slideInUp 0.8s ease-out 0.5s both;
+}
+
+.medal-entrance-container {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f09491 0%, #f7a8a6 100%);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 8px 32px rgba(240, 148, 145, 0.3),
+    0 4px 16px rgba(240, 148, 145, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.medal-entrance-container:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 40px rgba(240, 148, 145, 0.4),
+    0 6px 20px rgba(240, 148, 145, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.medal-entrance-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
+}
+
+.medal-entrance-container:hover::before {
+  left: 100%;
+}
+
+.medal-entrance-left {
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+.recent-medals {
+  display: flex;
+  gap: 4px;
+}
+
+.recent-medal-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  animation: medalIconFloat 2s ease-in-out infinite;
+}
+
+.recent-medal-icon:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.recent-medal-icon:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+.no-medals {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+.medal-entrance-center {
+  flex: 1;
+  text-align: left;
+  color: white;
+}
+
+.medal-entrance-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.medal-entrance-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.medal-entrance-right {
+  flex-shrink: 0;
+  text-align: right;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.medal-progress {
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.medal-arrow {
+  font-size: 20px;
+  font-weight: bold;
+  opacity: 0.8;
+  transition: transform 0.3s ease;
+}
+
+.medal-entrance-container:hover .medal-arrow {
+  transform: translateX(4px);
+}
+
+@keyframes medalIconFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.05);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 详细统计 */

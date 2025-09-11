@@ -4,6 +4,10 @@
     <div class="header">
       <h1 class="title">每日签到</h1>
       <div class="subtitle">坚持练习，成就更好的自己</div>
+      <button class="share-btn" @click="shareCheckIn" :disabled="isGeneratingImage">
+        <span v-if="isGeneratingImage">生成中...</span>
+        <span v-else>📤 分享</span>
+      </button>
     </div>
 
     <!-- 顶部综合状态区域 -->
@@ -178,6 +182,7 @@ import { ref, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { checkInManager, type CheckInRecord, type CheckInStats } from '@/utils/checkin-manager'
 import type { GameType } from '@/utils/game-data-manager'
+import html2canvas from 'html2canvas'
 
 // 响应式数据
 const stats = ref<CheckInStats>({
@@ -195,6 +200,9 @@ const calendarData = ref<Record<string, CheckInRecord>>({})
 const showDetailModal = ref(false)
 const selectedDate = ref('')
 const selectedDateRecord = ref<CheckInRecord | null>(null)
+
+// 分享功能相关
+const isGeneratingImage = ref(false)
 
 // 星期标题
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
@@ -364,6 +372,191 @@ const nextMonth = () => {
   loadCalendarData()
 }
 
+// 生成日历HTML
+const generateCalendarHTML = () => {
+  const year = currentYear.value
+  const month = currentMonth.value
+  const today = dayjs()
+  const firstDay = dayjs().year(year).month(month - 1).date(1)
+  const daysInMonth = firstDay.daysInMonth()
+  const startDay = firstDay.day() // 0 = Sunday, 1 = Monday, etc.
+  
+  let html = ''
+  
+  // 空白格子（上个月的日期）
+  for (let i = 0; i < startDay; i++) {
+    html += '<div style="padding: 8px;"></div>'
+  }
+  
+  // 当月的日期
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = dayjs().year(year).month(month - 1).date(day)
+    const dateKey = currentDate.format('YYYY-MM-DD')
+    const isCheckedIn = calendarData.value[dateKey]
+    const isToday = currentDate.isSame(today, 'day')
+    const isPast = currentDate.isBefore(today, 'day')
+    
+    let bgColor = 'transparent'
+    let textColor = '#666'
+    let borderColor = 'transparent'
+    
+    if (isToday) {
+      borderColor = '#f59e0b'
+      textColor = '#f59e0b'
+    }
+    
+    if (isCheckedIn) {
+      bgColor = '#22c55e'
+      textColor = 'white'
+    } else if (isPast && !isToday) {
+      textColor = '#d1d5db'
+    }
+    
+    html += `
+      <div style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: ${bgColor};
+        color: ${textColor};
+        border: 2px solid ${borderColor};
+        font-size: 12px;
+        font-weight: 500;
+        margin: 0 auto;
+      ">
+        ${day}
+      </div>
+    `
+  }
+  
+  return html
+}
+
+// 分享签到状态
+const shareCheckIn = async () => {
+  if (isGeneratingImage.value) return
+  
+  try {
+    isGeneratingImage.value = true
+    
+    // 创建分享用的容器
+    const shareContainer = document.createElement('div')
+    shareContainer.style.cssText = `
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      width: 750px;
+      min-height: 1334px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 40px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: white;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    `
+    
+    // 添加内容
+    shareContainer.innerHTML = `
+      <div style="text-align: center; margin-bottom: 60px;">
+        <h1 style="font-size: 48px; margin: 0 0 20px 0; font-weight: 700;">我的签到记录</h1>
+        <div style="font-size: 24px; opacity: 0.9;">坚持练习，成就更好的自己</div>
+      </div>
+      
+      <div style="background: rgba(255, 255, 255, 0.95); border-radius: 24px; padding: 40px; margin-bottom: 40px; color: #333;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+          <div style="text-align: center;">
+            <div style="font-size: 20px; color: #666; margin-bottom: 8px;">今日状态</div>
+            <div style="font-size: 32px; font-weight: 700; color: ${isTodayCheckedIn.value ? '#22c55e' : '#ef4444'};">
+              ${isTodayCheckedIn.value ? '✅ 已签到' : '⏰ 待签到'}
+            </div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 20px; color: #666; margin-bottom: 8px;">连续签到</div>
+            <div style="font-size: 32px; font-weight: 700; color: #f59e0b;">
+              ${stats.value.currentStreak} 天
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+          <div style="text-align: center; padding: 20px; background: rgba(0, 0, 0, 0.05); border-radius: 12px;">
+            <div style="font-size: 16px; color: #666; margin-bottom: 8px;">累计签到</div>
+            <div style="font-size: 28px; font-weight: 600; color: #3b82f6;">${stats.value.totalDays} 天</div>
+          </div>
+          <div style="text-align: center; padding: 20px; background: rgba(0, 0, 0, 0.05); border-radius: 12px;">
+            <div style="font-size: 16px; color: #666; margin-bottom: 8px;">本月签到</div>
+            <div style="font-size: 28px; font-weight: 600; color: #10b981;">${stats.value.thisMonthCount} 天</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 30px;">
+          <div style="background: #f3f4f6; border-radius: 12px; padding: 16px;">
+            <div style="font-size: 14px; color: #666; margin-bottom: 8px;">本月签到进度</div>
+            <div style="background: #e5e7eb; height: 12px; border-radius: 6px; overflow: hidden;">
+              <div style="background: linear-gradient(90deg, #3b82f6, #10b981); height: 100%; width: ${monthProgress.value}%; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="text-align: right; font-size: 12px; color: #666; margin-top: 4px;">${monthProgress.value}% 完成</div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="background: rgba(255, 255, 255, 0.95); border-radius: 20px; padding: 30px; margin-bottom: 30px; color: #333;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="font-size: 20px; font-weight: 600; color: #333; margin-bottom: 16px;">${dayjs().format('YYYY年MM月')} 签到日历</div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; max-width: 420px; margin: 0 auto;">
+          <!-- 星期标题 -->
+          ${['日', '一', '二', '三', '四', '五', '六'].map(day => 
+            `<div style="text-align: center; font-size: 12px; color: #666; font-weight: 600; padding: 8px 0;">${day}</div>`
+          ).join('')}
+          
+          <!-- 日历格子 -->
+          ${generateCalendarHTML()}
+        </div>
+      </div>
+      
+      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <div style="font-size: 24px; margin-bottom: 20px; opacity: 0.9;">💪 每日训练，持续精进</div>
+        <div style="font-size: 18px; opacity: 0.7;">${dayjs().format('YYYY年MM月DD日')}</div>
+      </div>
+      
+      <div style="text-align: center; opacity: 0.6; font-size: 16px;">
+        舒尔特方格训练 · 专注力提升
+      </div>
+    `
+    
+    document.body.appendChild(shareContainer)
+    
+    // 生成图片
+    const canvas = await html2canvas(shareContainer, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      allowTaint: false
+    })
+    
+    // 清理DOM
+    document.body.removeChild(shareContainer)
+    
+    // 下载图片
+    const link = document.createElement('a')
+    link.download = `签到记录_${dayjs().format('YYYY-MM-DD')}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+    
+  } catch (error) {
+    console.error('生成分享图片失败:', error)
+    alert('生成分享图片失败，请稍后再试')
+  } finally {
+    isGeneratingImage.value = false
+  }
+}
+
 // 生命周期
 onMounted(() => {
   loadData()
@@ -384,6 +577,7 @@ onMounted(() => {
   text-align: center;
   margin-bottom: 24px;
   color: white;
+  position: relative;
 }
 
 .title {
@@ -397,6 +591,39 @@ onMounted(() => {
   font-size: 16px;
   margin-top: 8px;
   opacity: 0.9;
+}
+
+.share-btn {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.share-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.share-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: translateY(-50%);
+}
+
+.share-btn:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.95);
 }
 
 /* 顶部综合状态区域 */
@@ -759,7 +986,7 @@ onMounted(() => {
 }
 
 .record-info {
-  space-y: 16px;
+  /* space-y removed as it's not a valid CSS property */
 }
 
 .info-item {

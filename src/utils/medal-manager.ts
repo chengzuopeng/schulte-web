@@ -2,7 +2,7 @@
 // 负责奖章数据的存储、检查和管理
 
 import dayjs from 'dayjs'
-import type { SchulteRecord } from './game-data-manager'
+import type { SchulteRecord, GameType, BaseGameRecord } from './game-data-manager'
 
 // 奖章稀有度
 export enum MedalRarity {
@@ -49,7 +49,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'lightning_rookie',
     name: '闪电新手',
-    description: '在3x3网格中，用时少于4秒完成一次游戏',
+    description: '在专注练习3x3网格中，用时少于4秒',
     icon: '⚡',
     category: MedalCategory.SPEED,
     rarity: MedalRarity.BRONZE,
@@ -81,7 +81,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'swift_youth',
     name: '疾风少年',
-    description: '在4x4网格中，用时少于13秒完成一次游戏',
+    description: '在专注练习4x4网格中，用时少于13秒完成',
     icon: '⚡',
     category: MedalCategory.SPEED,
     rarity: MedalRarity.SILVER,
@@ -112,7 +112,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'speed_master',
     name: '速度大师',
-    description: '在5x5网格中，用时少于24秒完成一次游戏',
+    description: '在专注练习5x5网格中，用时少于24秒完成',
     icon: '🚀',
     category: MedalCategory.SPEED,
     rarity: MedalRarity.GOLD,
@@ -204,7 +204,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'diligent_trainer',
     name: '勤奋习者',
-    description: '连续7天每天至少完成1次Schulte练习',
+    description: '连续7天每天至少完成1次训练',
     icon: '📅',
     category: MedalCategory.PERSISTENCE,
     rarity: MedalRarity.BRONZE,
@@ -280,7 +280,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'hundred_forged',
     name: '百炼成钢',
-    description: '累计完成500次Schulte练习',
+    description: '累计完成500次训练',
     icon: '🏆',
     category: MedalCategory.PERSISTENCE,
     rarity: MedalRarity.GOLD,
@@ -297,7 +297,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'all_rounder',
     name: '全能选手',
-    description: '在3x3到8x8所有网格尺寸中都有记录',
+    description: '在专注练习3x3到8x8所有网格尺寸中都有记录',
     icon: '🌟',
     category: MedalCategory.MASTERY,
     rarity: MedalRarity.SILVER,
@@ -320,7 +320,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'royal_glory',
     name: '王者荣耀',
-    description: '在任意网格尺寸中达到"王者"段位(99分以上)',
+    description: '在专注练习任意网格尺寸中达到"王者"段位',
     icon: '👑',
     category: MedalCategory.MASTERY,
     rarity: MedalRarity.DIAMOND,
@@ -347,7 +347,7 @@ const MEDAL_CONFIGS: MedalConfig[] = [
   {
     id: 'first_breakthrough',
     name: '首次突破',
-    description: '完成第一次Schulte练习',
+    description: '完成第一次训练',
     icon: '🎉',
     category: MedalCategory.SPECIAL,
     rarity: MedalRarity.BRONZE,
@@ -436,6 +436,330 @@ const MEDAL_CONFIGS: MedalConfig[] = [
       
       return Math.min(100, (maxImprovement / 50) * 100)
     }
+  },
+
+  // 新增的9个奖章
+  
+  // 速度类 (3个)
+  {
+    id: 'legend_speed',
+    name: '极速传说',
+    description: '在专注练习6x6网格中，用时少于60秒',
+    icon: '⚡',
+    category: MedalCategory.SPEED,
+    rarity: MedalRarity.PLATINUM,
+    requirement: { gridSize: 6, targetTime: 60000 },
+    checkCondition: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      return allRecords.some(record => 
+        record.size === 6 && record.duration < 60000
+      )
+    },
+    getProgress: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      const bestTime = Math.min(...allRecords
+        .filter(r => r.size === 6)
+        .map(r => r.duration)
+        .concat([Infinity]))
+      
+      if (bestTime === Infinity) return 0
+      if (bestTime < 60000) return 100
+      
+      const startTime = 300000
+      const targetTime = 60000
+      const progress = Math.max(0, (startTime - bestTime) / (startTime - targetTime) * 100)
+      return Math.min(100, progress)
+    }
+  },
+
+  {
+    id: 'storm_eye',
+    name: '风暴之眼',
+    description: '在专注练习7x7网格中，用时少于150秒',
+    icon: '🌪️',
+    category: MedalCategory.SPEED,
+    rarity: MedalRarity.PLATINUM,
+    requirement: { gridSize: 7, targetTime: 150000 },
+    checkCondition: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      return allRecords.some(record => 
+        record.size === 7 && record.duration < 150000
+      )
+    },
+    getProgress: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      const bestTime = Math.min(...allRecords
+        .filter(r => r.size === 7)
+        .map(r => r.duration)
+        .concat([Infinity]))
+      
+      if (bestTime === Infinity) return 0
+      if (bestTime < 150000) return 100
+      
+      const startTime = 600000
+      const targetTime = 150000
+      const progress = Math.max(0, (startTime - bestTime) / (startTime - targetTime) * 100)
+      return Math.min(100, progress)
+    }
+  },
+
+  {
+    id: 'light_speed',
+    name: '光速突破',
+    description: '在专注练习8x8网格中，用时少于300秒',
+    icon: '⭐',
+    category: MedalCategory.SPEED,
+    rarity: MedalRarity.DIAMOND,
+    requirement: { gridSize: 8, targetTime: 300000 },
+    checkCondition: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      return allRecords.some(record => 
+        record.size === 8 && record.duration < 300000
+      )
+    },
+    getProgress: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      const bestTime = Math.min(...allRecords
+        .filter(r => r.size === 8)
+        .map(r => r.duration)
+        .concat([Infinity]))
+      
+      if (bestTime === Infinity) return 0
+      if (bestTime < 300000) return 100
+      
+      const startTime = 1200000
+      const targetTime = 300000
+      const progress = Math.max(0, (startTime - bestTime) / (startTime - targetTime) * 100)
+      return Math.min(100, progress)
+    }
+  },
+
+  // 准确性类 (2个) - 三个游戏共有
+  {
+    id: 'sharpshooter',
+    name: '神射手',
+    description: '单次游戏中完成高难度训练且零错误',
+    icon: '🎯',
+    category: MedalCategory.ACCURACY,
+    rarity: MedalRarity.GOLD,
+    requirement: { consecutiveCorrect: 50 },
+    checkCondition: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      // 这个奖章需要在游戏过程中实时检查，这里简化为检查大网格的零错误记录
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      return allRecords.some(record => 
+        record.size >= 6 && (record.errorCount || 0) === 0
+      )
+    },
+    getProgress: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      const largeGridZeroError = allRecords.filter(record => 
+        record.size >= 6 && (record.errorCount || 0) === 0
+      ).length
+      
+      return Math.min(100, (largeGridZeroError / 1) * 100)
+    }
+  },
+
+  {
+    id: 'flawless_master',
+    name: '完美无瑕',
+    description: '累计完成500次零错误训练',
+    icon: '💯',
+    category: MedalCategory.ACCURACY,
+    rarity: MedalRarity.PLATINUM,
+    requirement: { totalCount: 500 },
+    checkCondition: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      const zeroErrorCount = allRecords.filter(record => 
+        (record.errorCount || 0) === 0
+      ).length
+      
+      return zeroErrorCount >= 500
+    },
+    getProgress: (records: SchulteRecord[], currentRecord?: SchulteRecord) => {
+      const allRecords = currentRecord ? [...records, currentRecord] : records
+      const zeroErrorCount = allRecords.filter(record => 
+        (record.errorCount || 0) === 0
+      ).length
+      
+      return Math.min(100, (zeroErrorCount / 500) * 100)
+    }
+  },
+
+  // 坚持类 (2个) - 三个游戏共有
+  {
+    id: 'monthly_warrior',
+    name: '月度勇士',
+    description: '连续30天每天至少完成1次训练',
+    icon: '🔥',
+    category: MedalCategory.PERSISTENCE,
+    rarity: MedalRarity.GOLD,
+    requirement: { consecutiveDays: 30 },
+    checkCondition: (records: SchulteRecord[]) => {
+      if (records.length === 0) return false
+      
+      const dailyRecords: Record<string, SchulteRecord[]> = {}
+      records.forEach(record => {
+        const date = dayjs(record.createdTime).format('YYYY-MM-DD')
+        if (!dailyRecords[date]) {
+          dailyRecords[date] = []
+        }
+        dailyRecords[date].push(record)
+      })
+      
+      const dates = Object.keys(dailyRecords).sort()
+      if (dates.length < 30) return false
+      
+      let consecutiveDays = 1
+      let maxConsecutive = 1
+      
+      for (let i = 1; i < dates.length; i++) {
+        const prevDate = dayjs(dates[i - 1])
+        const currentDate = dayjs(dates[i])
+        
+        if (currentDate.diff(prevDate, 'day') === 1) {
+          consecutiveDays++
+          maxConsecutive = Math.max(maxConsecutive, consecutiveDays)
+        } else {
+          consecutiveDays = 1
+        }
+      }
+      
+      return maxConsecutive >= 30
+    },
+    getProgress: (records: SchulteRecord[]) => {
+      if (records.length === 0) return 0
+      
+      const dailyRecords: Record<string, SchulteRecord[]> = {}
+      records.forEach(record => {
+        const date = dayjs(record.createdTime).format('YYYY-MM-DD')
+        if (!dailyRecords[date]) {
+          dailyRecords[date] = []
+        }
+        dailyRecords[date].push(record)
+      })
+      
+      const dates = Object.keys(dailyRecords).sort()
+      if (dates.length === 0) return 0
+      
+      let consecutiveDays = 1
+      let maxConsecutive = 1
+      
+      for (let i = 1; i < dates.length; i++) {
+        const prevDate = dayjs(dates[i - 1])
+        const currentDate = dayjs(dates[i])
+        
+        if (currentDate.diff(prevDate, 'day') === 1) {
+          consecutiveDays++
+          maxConsecutive = Math.max(maxConsecutive, consecutiveDays)
+        } else {
+          consecutiveDays = 1
+        }
+      }
+      
+      return Math.min(100, (maxConsecutive / 30) * 100)
+    }
+  },
+
+  {
+    id: 'annual_legend',
+    name: '年度传奇',
+    description: '累计完成2000次训练',
+    icon: '👑',
+    category: MedalCategory.PERSISTENCE,
+    rarity: MedalRarity.DIAMOND,
+    requirement: { totalCount: 2000 },
+    checkCondition: (records: SchulteRecord[]) => {
+      return records.length >= 2000
+    },
+    getProgress: (records: SchulteRecord[]) => {
+      return Math.min(100, (records.length / 2000) * 100)
+    }
+  },
+
+  // 特殊类 (2个) - 三个游戏共有
+  {
+    id: 'multi_master',
+    name: '多元大师',
+    description: '在同一天内完成所有不同难度的训练',
+    icon: '🎊',
+    category: MedalCategory.SPECIAL,
+    rarity: MedalRarity.PLATINUM,
+    requirement: { allSizesOneDay: [3, 4, 5, 6, 7, 8] },
+    checkCondition: (records: SchulteRecord[]) => {
+      const dailyRecords: Record<string, Set<number>> = {}
+      
+      records.forEach(record => {
+        const date = dayjs(record.createdTime).format('YYYY-MM-DD')
+        if (!dailyRecords[date]) {
+          dailyRecords[date] = new Set()
+        }
+        dailyRecords[date].add(record.size)
+      })
+      
+      const requiredSizes = [3, 4, 5, 6, 7, 8]
+      
+      for (const date in dailyRecords) {
+        const sizesInDay = dailyRecords[date]
+        if (requiredSizes.every(size => sizesInDay.has(size))) {
+          return true
+        }
+      }
+      
+      return false
+    },
+    getProgress: (records: SchulteRecord[]) => {
+      const dailyRecords: Record<string, Set<number>> = {}
+      
+      records.forEach(record => {
+        const date = dayjs(record.createdTime).format('YYYY-MM-DD')
+        if (!dailyRecords[date]) {
+          dailyRecords[date] = new Set()
+        }
+        dailyRecords[date].add(record.size)
+      })
+      
+      const requiredSizes = [3, 4, 5, 6, 7, 8]
+      let maxSizesInOneDay = 0
+      
+      for (const date in dailyRecords) {
+        const sizesInDay = dailyRecords[date]
+        const completedSizes = requiredSizes.filter(size => sizesInDay.has(size))
+        maxSizesInOneDay = Math.max(maxSizesInOneDay, completedSizes.length)
+      }
+      
+      return (maxSizesInOneDay / requiredSizes.length) * 100
+    }
+  },
+
+  {
+    id: 'time_traveler',
+    name: '时间旅行者',
+    description: '在不同时段都有训练记录，累计跨越7个不同的小时段',
+    icon: '🌟',
+    category: MedalCategory.SPECIAL,
+    rarity: MedalRarity.GOLD,
+    requirement: { timeSlots: 7 },
+    checkCondition: (records: SchulteRecord[]) => {
+      const hourSlots = new Set<number>()
+      
+      records.forEach(record => {
+        const hour = dayjs(record.createdTime).hour()
+        hourSlots.add(hour)
+      })
+      
+      return hourSlots.size >= 7
+    },
+    getProgress: (records: SchulteRecord[]) => {
+      const hourSlots = new Set<number>()
+      
+      records.forEach(record => {
+        const hour = dayjs(record.createdTime).hour()
+        hourSlots.add(hour)
+      })
+      
+      return Math.min(100, (hourSlots.size / 7) * 100)
+    }
   }
 ]
 
@@ -486,6 +810,30 @@ class MedalManager {
     } catch (error) {
       console.warn('Failed to save user medals', error)
       return false
+    }
+  }
+
+  // 检查奖章状态（支持三个游戏类型）
+  checkMedalsForAllGames(gameType: GameType, existingRecords: BaseGameRecord[], newRecord: BaseGameRecord): string[] {
+    // 将所有记录转换为SchulteRecord格式进行检查
+    const convertedExisting = this.convertToSchulteRecords(existingRecords)
+    const convertedNew = this.convertToSchulteRecord(newRecord)
+    
+    return this.checkMedals(convertedExisting, convertedNew)
+  }
+
+  // 将BaseGameRecord转换为SchulteRecord格式
+  private convertToSchulteRecords(records: BaseGameRecord[]): SchulteRecord[] {
+    return records.map(record => this.convertToSchulteRecord(record))
+  }
+
+  private convertToSchulteRecord(record: BaseGameRecord): SchulteRecord {
+    return {
+      duration: record.duration,
+      size: record.size,
+      createdTime: record.createdTime,
+      errorCount: record.errorCount || 0,
+      score: (record as any).score || 0
     }
   }
 
