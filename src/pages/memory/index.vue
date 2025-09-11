@@ -120,79 +120,21 @@
     <!-- 结果界面 -->
     <div class="stats-section" v-else-if="state === 3">
       <!-- 成绩统计容器 -->
-      <div class="stats-container">
-        <div class="stat-item">
-          <div class="stat-icon">⏱️</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ formatMilliseconds(timeCounter) }}</div>
-            <div class="stat-label">用时</div>
-          </div>
-        </div>
-        
-        <div class="stat-item">
-          <div class="stat-icon">{{errorCount ? '❌' : '✅'}}</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ errorCount }}</div>
-            <div class="stat-label">错误次数</div>
-          </div>
-        </div>
-      </div>
+      <GameResultStats 
+        :duration="timeCounter" 
+        :error-count="errorCount" 
+      />
       
       <!-- 奖章入口 -->
-      <div class="medal-entrance" @click="goToMedalPage">
-        <div class="medal-entrance-container">
-          <div class="medal-entrance-left">
-            <div class="recent-medals">
-              <div 
-                v-for="medal in recentMedals" 
-                :key="medal.id" 
-                class="recent-medal-icon"
-                :title="medal.name"
-              >
-                {{ medal.icon }}
-              </div>
-              <div v-if="recentMedals.length === 0" class="no-medals">
-                🏆
-              </div>
-            </div>
-          </div>
-          <div class="medal-entrance-center">
-            <div class="medal-entrance-title">查看我的奖章收藏</div>
-            <div class="medal-entrance-subtitle">发现更多成就</div>
-          </div>
-          <div class="medal-entrance-right">
-            <div class="medal-progress">{{ medalStats.unlocked }}/{{ medalStats.total }}</div>
-            <div class="medal-arrow">›</div>
-          </div>
-        </div>
-      </div>
+      <GameMedalDisplay game-type="memory" />
       
       <!-- 详细统计 -->
-      <div v-if="gameStats" class="result-details">
-        <div class="detail-row" v-if="gameStats.personalBest !== null">
-          <div class="detail-icon">🏆</div>
-          <div class="detail-content">
-            <div class="detail-label">个人最佳</div>
-            <div class="detail-value">{{ formatMilliseconds(gameStats.personalBest) }}</div>
-          </div>
-        </div>
-        
-        <div class="detail-row">
-          <div class="detail-icon">📅</div>
-          <div class="detail-content">
-            <div class="detail-label">今日练习</div>
-            <div class="detail-value">第{{ gameStats.todayCount }}次</div>
-          </div>
-        </div>
-        
-        <div class="detail-row" v-if="gameStats.todayBest !== null">
-          <div class="detail-icon">⭐</div>
-          <div class="detail-content">
-            <div class="detail-label">今日最佳</div>
-            <div class="detail-value">{{ formatMilliseconds(gameStats.todayBest) }}</div>
-          </div>
-        </div>
-      </div>
+      <GamePersonalStats 
+        v-if="gameStats"
+        :personal-best="gameStats.personalBest || 0"
+        :today-count="gameStats.todayCount"
+        :today-best="gameStats.todayBest || 0"
+      />
       <div class="footer">
         <button class="restart-button" @click="resetGame">重新开始</button>
         <button class="back-button" @click="goHome">返回</button>
@@ -217,6 +159,9 @@ import { gameDataManager, type GameStatistics } from '@/utils/game-data-manager'
 import { gameSettingsManager, type MemorySettings } from '@/utils/game-settings-manager'
 import { medalManager } from '@/utils/medal-manager'
 import { useRouter } from 'vue-router'
+import GameResultStats from '@/components/GameResultStats.vue'
+import GameMedalDisplay from '@/components/GameMedalDisplay.vue'
+import GamePersonalStats from '@/components/GamePersonalStats.vue'
 import { appManager, playSound, vibrateShort, vibrateSuccess, vibrateFailure } from '@/utils/app-bridge'
 import { initMobileOptimization } from '@/utils/mobile-optimization'
 import { audioManager } from '@/utils/audio-cache'
@@ -274,29 +219,6 @@ let bgClassList: number[] = []
 // 游戏统计数据
 const gameStats = ref<GameStatistics | null>(null)
 
-// 奖章统计信息
-const medalStats = computed(() => {
-  try {
-    return medalManager.getMedalStats()
-  } catch (error) {
-    console.warn('获取奖章统计失败:', error)
-    return { total: 0, unlocked: 0, byRarity: {}, byCategory: {} }
-  }
-})
-
-// 最近解锁的奖章
-const recentMedals = computed(() => {
-  try {
-    const allMedals = medalManager.getAllUserMedals()
-    return allMedals
-      .filter(medal => medal.unlocked && medal.unlockedAt)
-      .sort((a, b) => (b.unlockedAt || 0) - (a.unlockedAt || 0))
-      .slice(0, 3)
-  } catch (error) {
-    console.warn('获取最近奖章失败:', error)
-    return []
-  }
-})
 
 // 数据统计弹窗
 const showStatsModal = ref(false)
@@ -678,10 +600,6 @@ onMounted(async () => {
   })
 })
 
-// 跳转到奖章页面
-const goToMedalPage = () => {
-  router.push('/medal')
-}
 
 // 监听设置变化并自动保存
 watch([sizeOption, background, vibrate, countdownType, audioType], () => {

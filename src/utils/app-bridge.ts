@@ -12,6 +12,9 @@ declare global {
       playSound(type: string): void;
       vibrate(duration: number): void;
       setStatusBarStyle?(style: string): void;
+      navigateToPage?(pageName: string): boolean;
+      shareContent?(title: string, content: string): boolean;
+      shareImage?(imagePath: string, title?: string): Promise<boolean>;
     };
   }
 }

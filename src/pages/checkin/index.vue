@@ -525,8 +525,9 @@ const shareCheckIn = async () => {
         <div style="font-size: 18px; opacity: 0.7;">${dayjs().format('YYYY年MM月DD日')}</div>
       </div>
       
-      <div style="text-align: center; opacity: 0.6; font-size: 16px;">
-        舒尔特方格训练 · 专注力提升
+      <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.3);">
+        <img src="/src/assets/image/schulte-logo.png" style="width: 48px; height: 48px; margin: 0 auto 8px auto; display: block; border-radius: 12px;" alt="Schulte Logo" />
+        <div style="opacity: 0.6; font-size: 16px;">舒尔特方格训练 · 专注力提升</div>
       </div>
     `
     
@@ -543,10 +544,31 @@ const shareCheckIn = async () => {
     // 清理DOM
     document.body.removeChild(shareContainer)
     
-    // 下载图片
+    // 转换为base64格式
+    const imageDataUrl = canvas.toDataURL('image/png')
+    
+    // 检查是否在App WebView中，如果是则使用JSBridge分享图片
+    if (window.SchulteApp && typeof window.SchulteApp.shareImage === 'function') {
+      try {
+        const success = await window.SchulteApp.shareImage(
+          imageDataUrl, 
+          '我的签到记录'
+        )
+        if (success) {
+          console.log('使用JSBridge分享图片成功')
+          return
+        } else {
+          console.warn('JSBridge图片分享失败，使用下载方式')
+        }
+      } catch (error) {
+        console.error('JSBridge图片分享异常:', error)
+      }
+    }
+    
+    // 降级到下载图片
     const link = document.createElement('a')
     link.download = `签到记录_${dayjs().format('YYYY-MM-DD')}.png`
-    link.href = canvas.toDataURL('image/png')
+    link.href = imageDataUrl
     link.click()
     
   } catch (error) {
