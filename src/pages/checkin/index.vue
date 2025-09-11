@@ -526,7 +526,7 @@ const shareCheckIn = async () => {
       </div>
       
       <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.3);">
-        <img src="/src/assets/image/schulte-logo.png" style="width: 48px; height: 48px; margin: 0 auto 8px auto; display: block; border-radius: 12px;" alt="Schulte Logo" />
+        <img src="/images/schulte-logo.png" style="width: 48px; height: 48px; margin: 0 auto 8px auto; display: block; border-radius: 12px;" alt="Schulte Logo" />
         <div style="opacity: 0.6; font-size: 16px;">舒尔特方格训练 · 专注力提升</div>
       </div>
     `
