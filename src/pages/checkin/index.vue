@@ -4,9 +4,9 @@
     <div class="header">
       <h1 class="title">每日签到</h1>
       <div class="subtitle">坚持练习，成就更好的自己</div>
-      <button class="share-btn" @click="shareCheckIn">
+      <!-- <button class="share-btn" @click="shareCheckIn">
         📤 分享
-      </button>
+      </button> -->
     </div>
 
     <!-- 顶部综合状态区域 -->

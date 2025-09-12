@@ -35,6 +35,7 @@ export function getUserId(): string | null {
     if (isInSchulteApp()) {
       // 在原生应用中
       const userId = window.SchulteNative!.getUserId();
+      console.log('鸿蒙app用户ID:', userId);
       // 获取到鸿蒙app用户ID
       return userId;
     } else {
@@ -67,6 +68,7 @@ export function vibrate(duration: number): boolean {
   try {
     if (isInSchulteApp()) {
       // 在原生应用中调用app的震动能力
+      console.log('鸿蒙app震动:', duration);
       return window.SchulteNative!.vibrate(duration);
       // 鸿蒙app震动
     } else {

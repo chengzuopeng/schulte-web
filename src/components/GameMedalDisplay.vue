@@ -1,7 +1,7 @@
 <template>
   <div class="medal-display-wrapper">
     <!-- 段位展示 -->
-    <div v-if="rank" class="rank-display">
+    <!-- <div v-if="rank" class="rank-display">
       <div class="rank-container" :style="{ backgroundColor: rank.bgColor }">
         <div class="rank-icon">{{ rank.icon }}</div>
         <div class="rank-info">
@@ -9,7 +9,7 @@
           <div class="rank-name" :style="{ color: rank.color }">{{ rank.name }}</div>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- 奖章入口 -->
     <div class="medal-entrance" @click="goToMedalPage">
@@ -214,18 +214,6 @@ const goToMedalPage = () => {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes rankIconBounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-8px);
-  }
-  60% {
-    transform: translateY(-4px);
   }
 }
 

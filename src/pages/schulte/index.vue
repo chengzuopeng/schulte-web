@@ -121,7 +121,8 @@
       <GameResultStats 
         :duration="timeCounter" 
         :error-count="errorCount" 
-        :score="gameScore || undefined" 
+        :score="gameScore || undefined"
+        :rank="currentRank || undefined"
       />
       
       <!-- 奖章展示（包含段位） -->

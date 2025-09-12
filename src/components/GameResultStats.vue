@@ -4,8 +4,8 @@
     <div class="stat-item">
       <div class="stat-icon">⏱️</div>
       <div class="stat-content">
+        <div class="stat-label">本次用时:</div>
         <div class="stat-value">{{ formatDuration(duration) }}</div>
-        <div class="stat-label">用时</div>
       </div>
     </div>
     
@@ -13,13 +13,13 @@
     <div class="stat-item">
       <div class="stat-icon">{{errorCount ? '❌' : '✅'}}</div>
       <div class="stat-content">
+        <div class="stat-label">错误次数:</div>
         <div class="stat-value">{{ errorCount }}</div>
-        <div class="stat-label">错误次数</div>
       </div>
     </div>
     
     <!-- 分数 (仅Schulte显示) -->
-    <div v-if="score !== undefined" class="stat-item score-item">
+    <div v-if="score !== undefined" class="stat-item score-item" :style="{ borderBottom: 'none', paddingBottom: '0' }">
       <div class="stat-icon score-icon">🎯</div>
       <div class="stat-content">
         <div class="score-text">
@@ -27,18 +27,36 @@
         </div>
       </div>
     </div>
+
+    <div v-if="rank" class="rank-container" :style="{ borderColor: rank.color, color: rank.color, backgroundColor: rank.bgColor }">
+      <div class="rank-content" :style="{ borderColor: rank.color}">
+        <div class="rank-icon">{{ rank.icon }}</div>
+        <div class="rank-name">{{ rank.name }}</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+// 段位信息接口
+interface RankInfo {
+  name: string
+  icon: string
+  color: string
+  bgColor: string
+}
+
 interface Props {
   duration: number
   errorCount: number
   score?: number
+  rank?: RankInfo
 }
 
+
 const props = withDefaults(defineProps<Props>(), {
-  score: undefined
+  score: undefined,
+  rank: undefined
 })
 
 const formatDuration = (ms: number): string => {
@@ -57,6 +75,7 @@ const formatDuration = (ms: number): string => {
 <style scoped>
 /* 成绩统计容器 */
 .result-stats {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -78,7 +97,7 @@ const formatDuration = (ms: number): string => {
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 10px 0;
   border-bottom: 1px solid rgba(226, 232, 240, 0.4);
   transition: all 0.2s ease;
@@ -98,9 +117,9 @@ const formatDuration = (ms: number): string => {
 }
 
 .stat-icon {
-  font-size: 28px;
-  width: 40px;
-  height: 40px;
+  font-size: 24px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,7 +129,7 @@ const formatDuration = (ms: number): string => {
 .stat-content {
   flex: 1;
   display: flex;
-  justify-content: space-between;
+  /* justify-content: space-between; */
   align-items: center;
 }
 
@@ -122,10 +141,10 @@ const formatDuration = (ms: number): string => {
 }
 
 .stat-label {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
   color: #64748b;
   opacity: 0.9;
+  margin-right: 10px;
 }
 
 .score-item .stat-icon {
@@ -151,5 +170,46 @@ const formatDuration = (ms: number): string => {
   display: inline-block;
   margin: 0 4px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+.rank-container {
+  transform: rotate(30deg);
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border-radius: 50%;
+  width: 92px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid;
+}
+
+.rank-content {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border-radius: 50%;
+  width: 84px;
+  height: 84px;
+  font-size: 24px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.rank-icon {
+  animation: rankIconBounce 1.2s ease-in-out infinite;
+}
+
+@keyframes rankIconBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+  60% {
+    transform: translateY(-2px);
+  }
 }
 </style>
