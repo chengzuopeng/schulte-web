@@ -6,30 +6,35 @@ import { audioManager } from './audio-cache';
 // 声明全局类型
 declare global {
   interface Window {
-    SchulteApp?: {
+    SchulteNative?: {
       isInApp(): boolean;
-      getUserId(): Promise<string>;
-      playSound(type: string): void;
-      vibrate(duration: number): void;
+      getUserId(): string;
+      playSound(soundType: string): boolean;
+      vibrate(duration: number): boolean;
+      navigateToPage(pageName: string): boolean;
+      shareContent(title: string, content: string): boolean;
       setStatusBarStyle?(style: string): void;
-      navigateToPage?(pageName: string): boolean;
-      shareContent?(title: string, content: string): boolean;
-      shareImage?(imagePath: string, title?: string): Promise<boolean>;
+      getAppInfo(): {
+        isInApp: boolean;
+        platform: string;
+        version: string;
+        timestamp: number;
+      };
     };
   }
 }
 
 // 检测是否在鸿蒙app中运行
 export function isInSchulteApp(): boolean {
-  return !!(window.SchulteApp && typeof window.SchulteApp.isInApp === 'function' && window.SchulteApp.isInApp());
+  return !!(window.SchulteNative && typeof window.SchulteNative.isInApp === 'function' && window.SchulteNative.isInApp());
 }
 
 // 获取用户ID
-export async function getUserId(): Promise<string | null> {
+export function getUserId(): string | null {
   try {
     if (isInSchulteApp()) {
       // 在原生应用中
-      const userId = await window.SchulteApp!.getUserId();
+      const userId = window.SchulteNative!.getUserId();
       // 获取到鸿蒙app用户ID
       return userId;
     } else {
@@ -58,25 +63,29 @@ export function playSound(type: 'success' | 'warning' | 'button' | 'error', audi
 }
 
 // 震动反馈
-export function vibrate(duration: number): void {
+export function vibrate(duration: number): boolean {
   try {
     if (isInSchulteApp()) {
       // 在原生应用中调用app的震动能力
-      window.SchulteApp!.vibrate(duration);
+      return window.SchulteNative!.vibrate(duration);
       // 鸿蒙app震动
     } else {
       // 浏览器兼容方案
       if (navigator.vibrate) {
         navigator.vibrate(duration);
+        return true;
         // 浏览器震动
       }
+      return false;
     }
   } catch (error) {
     console.error('震动失败:', error);
     // 降级到浏览器方案
     if (navigator.vibrate) {
       navigator.vibrate(duration);
+      return true;
     }
+    return false;
   }
 }
 
@@ -94,12 +103,12 @@ export function vibrateLong(): void {
 export function vibrateSuccess(): void {
   if (isInSchulteApp()) {
     // 短-长-短的震动模式
-    window.SchulteApp!.vibrate(100);
+    window.SchulteNative!.vibrate(100);
     setTimeout(() => {
-      window.SchulteApp!.vibrate(300);
+      window.SchulteNative!.vibrate(300);
     }, 150);
     setTimeout(() => {
-      window.SchulteApp!.vibrate(100);
+      window.SchulteNative!.vibrate(100);
     }, 500);
   } else {
     if (navigator.vibrate) {
@@ -112,12 +121,12 @@ export function vibrateSuccess(): void {
 export function vibrateFailure(): void {
   if (isInSchulteApp()) {
     // 短-短-短的震动模式
-    window.SchulteApp!.vibrate(100);
+    window.SchulteNative!.vibrate(100);
     setTimeout(() => {
-      window.SchulteApp!.vibrate(100);
+      window.SchulteNative!.vibrate(100);
     }, 150);
     setTimeout(() => {
-      window.SchulteApp!.vibrate(100);
+      window.SchulteNative!.vibrate(100);
     }, 300);
   } else {
     if (navigator.vibrate) {
@@ -131,19 +140,19 @@ export class SchulteAppManager {
   private userId: string | null = null;
   private isApp: boolean = false;
 
-  async init(): Promise<void> {
+  init(): void {
     this.isApp = isInSchulteApp();
     
     if (this.isApp) {
       try {
-        this.userId = await getUserId();
+        this.userId = getUserId();
         // 鸿蒙app初始化成功
       } catch (error) {
         console.error('鸿蒙app初始化失败:', error);
       }
     } else {
       // 在浏览器中运行，使用兼容方案
-      this.userId = await getUserId();
+      this.userId = getUserId();
     }
   }
 

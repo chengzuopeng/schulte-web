@@ -124,7 +124,7 @@
         :error-count="errorCount" 
       />
       
-      <!-- 奖章入口 -->
+      <!-- 奖章展示 -->
       <GameMedalDisplay game-type="color" />
       
       <!-- 详细统计 -->
@@ -524,9 +524,11 @@ onMounted(async () => {
   }
   
   // 在后台静默初始化appManager，不阻塞页面渲染
-  appManager.init().catch(error => {
+  try {
+    appManager.init()
+  } catch (error) {
     console.error('AppManager初始化失败:', error)
-  })
+  }
 })
 
 

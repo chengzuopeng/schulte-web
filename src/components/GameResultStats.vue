@@ -42,14 +42,15 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
+  const totalSeconds = (ms / 1000).toFixed(2)
+  const seconds = parseFloat(totalSeconds)
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = (seconds % 60).toFixed(2)
   
   if (minutes > 0) {
-    return `${minutes}分${seconds}秒`
+    return `${minutes}分${remainingSeconds}秒`
   }
-  return `${seconds}秒`
+  return `${remainingSeconds}秒`
 }
 </script>
 
@@ -63,7 +64,7 @@ const formatDuration = (ms: number): string => {
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%);
   backdrop-filter: blur(20px);
   border-radius: 24px;
-  padding: 32px 28px;
+  padding: 16px 24px;
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 
     0 20px 60px rgba(0, 0, 0, 0.08),
@@ -71,7 +72,7 @@ const formatDuration = (ms: number): string => {
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   position: relative;
   z-index: 1;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .stat-item {

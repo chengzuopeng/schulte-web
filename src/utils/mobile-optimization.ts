@@ -111,10 +111,10 @@ export function addTouchOptimization(): void {
 // 设置状态栏样式（针对鸿蒙app）
 export function setStatusBarStyle(): void {
   // 检测是否在鸿蒙app中
-  if (window.SchulteApp && window.SchulteApp.setStatusBarStyle) {
+  if (window.SchulteNative && window.SchulteNative.setStatusBarStyle) {
     try {
       // 设置状态栏为深色模式
-      window.SchulteApp.setStatusBarStyle('dark');
+      window.SchulteNative.setStatusBarStyle('dark');
     } catch (error) {
       console.log('设置状态栏样式失败:', error);
     }

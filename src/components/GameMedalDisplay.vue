@@ -1,28 +1,42 @@
 <template>
-  <div class="medal-entrance" @click="goToMedalPage">
-    <div class="medal-entrance-container">
-      <div class="medal-entrance-left">
-        <div class="recent-medals">
-          <div 
-            v-for="medal in recentMedals" 
-            :key="medal.id" 
-            class="recent-medal-icon"
-            :title="medal.name"
-          >
-            {{ medal.icon }}
-          </div>
-          <div v-if="recentMedals.length === 0" class="no-medals">
-            🏆
-          </div>
+  <div class="medal-display-wrapper">
+    <!-- 段位展示 -->
+    <div v-if="rank" class="rank-display">
+      <div class="rank-container" :style="{ backgroundColor: rank.bgColor }">
+        <div class="rank-icon">{{ rank.icon }}</div>
+        <div class="rank-info">
+          <div class="rank-title">本次成绩段位</div>
+          <div class="rank-name" :style="{ color: rank.color }">{{ rank.name }}</div>
         </div>
       </div>
-      <div class="medal-entrance-center">
-        <div class="medal-entrance-title">查看我的奖章收藏</div>
-        <div class="medal-entrance-subtitle">发现更多成就</div>
-      </div>
-      <div class="medal-entrance-right">
-        <div class="medal-progress">{{ medalStats.unlocked }}/{{ medalStats.total }}</div>
-        <div class="medal-arrow">›</div>
+    </div>
+
+    <!-- 奖章入口 -->
+    <div class="medal-entrance" @click="goToMedalPage">
+      <div class="medal-entrance-container">
+        <div class="medal-entrance-left">
+          <div class="recent-medals">
+            <div 
+              v-for="medal in recentMedals" 
+              :key="medal.id" 
+              class="recent-medal-icon"
+              :title="medal.name"
+            >
+              {{ medal.icon }}
+            </div>
+            <div v-if="recentMedals.length === 0" class="no-medals">
+              🏆
+            </div>
+          </div>
+        </div>
+        <div class="medal-entrance-center">
+          <div class="medal-entrance-title">查看我的奖章收藏</div>
+          <div class="medal-entrance-subtitle">发现更多成就</div>
+        </div>
+        <div class="medal-entrance-right">
+          <div class="medal-progress">{{ medalStats.unlocked }}/{{ medalStats.total }}</div>
+          <div class="medal-arrow">›</div>
+        </div>
       </div>
     </div>
   </div>
@@ -33,13 +47,24 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { medalManager } from '@/utils/medal-manager'
 
+// 段位信息接口
+interface RankInfo {
+  name: string
+  icon: string
+  color: string
+  bgColor: string
+}
+
 interface Props {
   // 可以传入游戏类型来自定义行为，目前所有游戏都跳转到同一个奖章页面
   gameType?: string
+  // 段位信息，不传则不展示段位模块
+  rank?: RankInfo
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  gameType: 'schulte'
+  gameType: 'schulte',
+  rank: undefined
 })
 
 const router = useRouter()
@@ -91,9 +116,9 @@ const goToMedalPage = () => {
   }
   
   // 检查是否在App WebView中，如果是则使用JSBridge跳转
-  if (window.SchulteApp && typeof window.SchulteApp.navigateToPage === 'function') {
+  if (window.SchulteNative && typeof window.SchulteNative.navigateToPage === 'function') {
     try {
-      const success = window.SchulteApp.navigateToPage('medal')
+      const success = window.SchulteNative.navigateToPage('medal')
       if (success) {
         console.log('使用JSBridge跳转到奖章页面成功')
         return
@@ -111,10 +136,103 @@ const goToMedalPage = () => {
 </script>
 
 <style scoped>
+/* 整体容器 */
+.medal-display-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 20px 0;
+}
+
+/* 段位展示 */
+.rank-display {
+  width: 100%;
+  animation: rankSlideIn 0.8s ease-out 0.3s both;
+}
+
+.rank-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.rank-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.6s ease;
+}
+
+.rank-container:hover::before {
+  left: 100%;
+}
+
+.rank-icon {
+  font-size: 40px;
+  margin-right: 16px;
+  animation: rankIconBounce 1.2s ease-in-out infinite;
+}
+
+.rank-info {
+  text-align: center;
+}
+
+.rank-title {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.rank-name {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* 段位动画 */
+@keyframes rankSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rankIconBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
+}
+
 /* 奖章入口 */
 .medal-entrance {
   width: 100%;
-  margin: 20px 0;
+  margin: 0;
   cursor: pointer;
   animation: slideInUp 0.8s ease-out 0.5s both;
 }

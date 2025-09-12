@@ -43,14 +43,15 @@ const formatDuration = (ms: number): string => {
     return '--'
   }
   
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
+  const totalSeconds = (ms / 1000).toFixed(2)
+  const seconds = parseFloat(totalSeconds)
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = (seconds % 60).toFixed(2)
   
   if (minutes > 0) {
-    return `${minutes}分${seconds}秒`
+    return `${minutes}分${remainingSeconds}秒`
   }
-  return `${seconds}秒`
+  return `${remainingSeconds}秒`
 }
 </script>
 
@@ -61,7 +62,7 @@ const formatDuration = (ms: number): string => {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.85) 100%);
   backdrop-filter: blur(20px);
   border-radius: 18px;
-  padding: 24px;
+  padding: 12px 24px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: 
     0 6px 20px rgba(0, 0, 0, 0.06),
@@ -74,7 +75,7 @@ const formatDuration = (ms: number): string => {
 .detail-row {
   display: flex;
   align-items: center;
-  padding: 16px 0;
+  padding: 6px 0;
   border-bottom: 1px solid rgba(226, 232, 240, 0.4);
   transition: all 0.2s ease;
 }

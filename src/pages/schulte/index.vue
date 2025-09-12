@@ -124,19 +124,11 @@
         :score="gameScore || undefined" 
       />
       
-      <!-- 段位展示 -->
-      <div v-if="currentRank" class="rank-display">
-        <div class="rank-container" :style="{ backgroundColor: currentRank.bgColor }">
-          <div class="rank-icon">{{ currentRank.icon }}</div>
-          <div class="rank-info">
-            <div class="rank-title">当前段位</div>
-            <div class="rank-name" :style="{ color: currentRank.color }">{{ currentRank.name }}</div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 奖章入口 -->
-      <GameMedalDisplay game-type="schulte" />
+      <!-- 奖章展示（包含段位） -->
+      <GameMedalDisplay 
+        game-type="schulte" 
+        :rank="currentRank || undefined"
+      />
       
       <!-- 详细统计 -->
       <GamePersonalStats 
@@ -582,9 +574,11 @@ onMounted(async () => {
   }
   
   // 在后台静默初始化appManager，不阻塞页面渲染
-  appManager.init().catch(error => {
+  try {
+    appManager.init();
+  } catch (error) {
     console.error('AppManager初始化失败:', error);
-  });
+  }
   
   // 静默拉取用户记录，不阻塞渲染
   // fetchUserRecords().catch(() => {})
@@ -1075,91 +1069,6 @@ onUnmounted(() => {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
-/* 段位展示 */
-.rank-display {
-  width: 100%;
-  margin: 20px 0;
-  animation: rankSlideIn 0.8s ease-out 0.3s both;
-}
-
-.rank-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 32px;
-  border-radius: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  position: relative;
-  overflow: hidden;
-}
-
-.rank-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.6s ease;
-}
-
-.rank-container:hover::before {
-  left: 100%;
-}
-
-.rank-icon {
-  font-size: 40px;
-  margin-right: 16px;
-  animation: rankIconBounce 1.2s ease-in-out infinite;
-}
-
-.rank-info {
-  text-align: left;
-}
-
-.rank-title {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.6);
-  font-weight: 500;
-  margin-bottom: 4px;
-  letter-spacing: 0.5px;
-}
-
-.rank-name {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-@keyframes rankSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes rankIconBounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-8px);
-  }
-  60% {
-    transform: translateY(-4px);
-  }
-}
 
 /* 奖章入口 */
 .medal-entrance {
